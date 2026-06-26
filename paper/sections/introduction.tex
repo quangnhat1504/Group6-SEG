@@ -1,0 +1,65 @@
+\section{Giới thiệu và Động lực}
+\label{sec:intro}
+
+Tìm kiếm khoa học khác với tìm kiếm web tổng quát vì tài liệu liên quan thường phụ thuộc vào thuật ngữ
+chính xác, các từ viết tắt, các thực thể y sinh (biomedical entities), và bằng chứng đặc thù cho từng
+claim. Một claim khoa học có thể được trả lời tốt nhất bằng \emph{exact lexical overlap}, nhưng một claim
+khác lại cần \emph{semantic matching} qua các cách diễn đạt khác nhau. Vì lý do này, các hệ thống truy hồi
+hiện đại thường kết hợp sparse lexical search, dense embedding search, fusion, và neural reranking.
+
+Vấn đề thực tế là \textbf{chi phí}. BM25 rẻ và mạnh; dense retrieval bổ sung độ phủ ngữ nghĩa nhưng cần
+tính embedding và vector search; hybrid retrieval kết hợp cả hai ở chi phí cao hơn; còn cross-encoder
+reranking đắt hơn nữa vì nó chấm điểm cặp query--document một cách kết hợp (jointly). Một pipeline
+``one-size-fits-all'' do đó có thể lãng phí compute trên những query dễ, và đôi khi còn làm giảm chất
+lượng ranking khi trộn lẫn các tín hiệu không hữu ích cho một query cụ thể.
+
+Dự án này nghiên cứu câu hỏi sau:
+
+\begin{quote}
+\itshape
+Một hệ thống truy hồi bài báo khoa học có thể dùng query routing và các tín hiệu bất định (uncertainty
+signals) để \emph{giữ nguyên chất lượng truy hồi} trong khi \emph{tránh các tầng đắt tiền không cần thiết}
+hay không?
+\end{quote}
+
+Hiện thực hiện tại tập trung vào \textbf{SciFact}, một benchmark được xây dựng cho xác minh claim khoa học
+và truy hồi bằng chứng. Hệ thống hiện chỉ dùng text của \emph{title} và \emph{abstract}, giúp dự án khả thi
+trên phần cứng sinh viên và tránh các phức tạp của việc phân tích PDF toàn văn.
+
+\paragraph{Đóng góp.}
+Báo cáo đóng góp các điểm sau, được tổ chức theo ba phase của dự án:
+\begin{enumerate}[leftmargin=2em,itemsep=2pt]
+  \item \textbf{Phase~1 --- Base retrieval \& ablation.} Thiết lập và so sánh BM25, Dense/SciNCL và
+  Hybrid RRF trên SciFact, cùng một dense-encoder ablation (SPECTER, MiniLM) để biện minh lựa chọn SciNCL.
+  \item \textbf{Phase~2 --- Query routing.} Hiện thực Random/Majority/Oracle router, một classical TF-IDF
+  router chẩn đoán, và một Small LLM QLoRA router (Qwen2.5-0.5B). Chúng tôi chỉ ra rằng \emph{label
+  log-probability scoring}, \emph{score calibration} và \emph{confidence-gated fallback} cải thiện độ tin
+  cậy của router, và đề xuất \emph{Mean Regret@10} như một thước đo công bằng hơn so với label accuracy.
+  \item \textbf{Phase~3 --- Selective reranking nhận biết bất định (đóng góp chính).} Xây dựng baseline
+  Always-Rerank có đo wall-clock latency, một threshold ablation đầy đủ, một tín hiệu \emph{QPP} không
+  giám sát dự báo gain-from-reranking, và một thủ tục \emph{Conformal Risk Control} chọn ngưỡng trigger
+  với bảo đảm thống kê về phần nDCG bị mất so với Always-Rerank.
+\end{enumerate}
+
+\noindent
+Thông điệp xuyên suốt: thay vì coi routing là đích đến, hệ thống nên dùng các tín hiệu \emph{rẻ và có
+nguyên tắc} để quyết định \emph{khi nào} chạy các tầng đắt tiền, kèm theo một bảo đảm có thể kiểm chứng
+về chất lượng đánh đổi.
+
+\section{Câu hỏi nghiên cứu}
+\label{sec:rq}
+
+Dự án được dẫn dắt bởi năm câu hỏi nghiên cứu (research questions):
+
+\begin{description}[leftmargin=3.2em,style=nextline,itemsep=3pt]
+  \item[\textbf{RQ1.}] BM25, dense retrieval và Hybrid RRF mạnh đến đâu trên SciFact title-and-abstract
+  retrieval?
+  \item[\textbf{RQ2.}] Còn bao nhiêu headroom nếu mỗi query được route tới phương pháp retrieval tốt
+  nhất của nó (oracle)?
+  \item[\textbf{RQ3.}] Một classical router hoặc một Small LLM router có thể xấp xỉ oracle route
+  selection hay không?
+  \item[\textbf{RQ4.}] LLM score calibration và confidence-gated fallback có cải thiện độ tin cậy của
+  router hay không?
+  \item[\textbf{RQ5.}] Đánh đổi cost--quality giữa static retrieval, query routing, và selective
+  reranking là như thế nào?
+\end{description}

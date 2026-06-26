@@ -1,0 +1,118 @@
+%==============================================================
+%  SEG — Uncertainty-Aware and Cost-Efficient Multi-Stage
+%        Retrieval for Scientific Paper Search
+%  Báo cáo dạng academic paper (tiếng Việt, giữ thuật ngữ tiếng Anh)
+%
+%  Biên dịch: pdfLaTeX  (chạy: pdflatex -> bibtex -> pdflatex x2)
+%  Hỗ trợ tiếng Việt: babel (vietnamese) + fontenc T5
+%==============================================================
+\documentclass[11pt,a4paper]{article}
+
+%-------------------- Ngôn ngữ & font --------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[english,main=vietnamese]{babel}
+\usepackage{lmodern}
+\IfFileExists{microtype.sty}{\usepackage{microtype}}{}
+
+%-------------------- Bố cục trang ------------------------------
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{parskip}
+
+%-------------------- Toán & ký hiệu ---------------------------
+\usepackage{amsmath,amssymb}
+\usepackage{bm}
+
+%-------------------- Bảng & hình ------------------------------
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\captionsetup{font=small,labelfont=bf}
+\usepackage{xcolor}
+
+%-------------------- Sơ đồ workflow ---------------------------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,backgrounds,calc}
+
+%-------------------- Trích dẫn & liên kết ---------------------
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!45!black,
+  urlcolor=blue!50!black,
+  pdftitle={Uncertainty-Aware Cost-Efficient Multi-Stage Retrieval for SciFact},
+  pdfauthor={SEG Team}
+}
+\usepackage{enumitem}
+
+%-------------------- Định nghĩa màu/style cho TikZ -----------
+\definecolor{cstage}{HTML}{2F6DB5}   % stage chính
+\definecolor{cgate}{HTML}{B5532F}    % cổng quyết định
+\definecolor{cdata}{HTML}{3C8C5A}    % dữ liệu
+\definecolor{cbox}{HTML}{F2F5FA}     % nền nhạt
+
+%-------------------- Lệnh tiện ích ----------------------------
+\newcommand{\ndcg}{nDCG@10}
+\newcommand{\recten}{Recall@10}
+\newcommand{\rechun}{Recall@100}
+\newcommand{\mrr}{MRR@10}
+\newcommand{\alphabudget}{\ensuremath{\alpha}}
+\newcommand{\starmark}{$\bigstar$}
+
+%==============================================================
+\begin{document}
+
+%-------------------- Trang tiêu đề ---------------------------
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+{\Large\bfseries SEG301m — Information Retrieval / Search Engines\par}
+\vspace{1.2cm}
+{\LARGE\bfseries Truy hồi đa tầng nhận biết bất định và tiết kiệm chi phí cho tìm kiếm bài báo khoa học\par}
+\vspace{0.5cm}
+{\large\itshape Uncertainty-Aware and Cost-Efficient Multi-Stage Retrieval\\ for Scientific Paper Search\par}
+\vspace{1.5cm}
+{\large Báo cáo kỹ thuật (Technical Report)\par}
+\vspace{0.3cm}
+{\normalsize Dataset: \textbf{SciFact} (BEIR-style title-and-abstract retrieval)\par}
+\vspace{2.0cm}
+{\large\bfseries Nhóm SEG\par}
+\vspace{0.3cm}
+{\normalsize Repository: \texttt{SEG}\par}
+\vfill
+{\normalsize Ngày cập nhật: 26/06/2026\par}
+\end{titlepage}
+
+%-------------------- Abstract --------------------------------
+\input{sections/abstract}
+
+\tableofcontents
+\clearpage
+
+%-------------------- Các chương -------------------------------
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/method}
+\input{sections/experiments}
+\input{sections/results}
+\input{sections/validation_experiments}
+\input{sections/discussion}
+\input{sections/limitations}
+\input{sections/conclusion}
+
+%-------------------- Tài liệu tham khảo -----------------------
+\bibliographystyle{plainnat}
+\bibliography{references/references}
+
+%-------------------- Phụ lục ----------------------------------
+\input{sections/appendix}
+
+\end{document}

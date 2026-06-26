@@ -1,6 +1,6 @@
 dataset:
-  name: scifact
-  data_dir: data/scifact
+  name: nfcorpus
+  data_dir: data/nfcorpus
   text_fields:
     - title
     - abstract
@@ -26,10 +26,8 @@ rerank:
   model: cross-encoder/ms-marco-MiniLM-L-6-v2
   top_k: 20
   router_confidence_threshold: 0.60
-  # Tuned on held-out calibration queries (seed=13); the old 0.03 OR 0.85 rule was
-  # too permissive and reranked every query. score_gap is the RRF top1/top2 gap.
   score_gap_threshold: 0.0024
   disagreement_threshold: 0.95
 
 outputs:
-  run_dir: runs/scifact
+  run_dir: runs/nfcorpus

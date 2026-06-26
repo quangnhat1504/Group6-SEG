@@ -1,0 +1,57 @@
+\appendix
+\section{Tái lập (Reproducibility Notes)}
+\label{app:repro}
+
+\paragraph{Các artifact sinh ra chính.}
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+  \item Base retrieval metrics: \texttt{runs/scifact/test\_base\_metrics.json}
+  \item Router metrics: \texttt{runs/scifact/test\_phase2\_router\_metrics.csv}
+  \item LLM log-prob predictions: \texttt{runs/scifact/test\_llm\_router\_predictions (2).csv}
+  \item Calibrated held-out metrics: \texttt{..._calibrated\_heldout\_metrics.json}
+  \item Retrieval diagnostics: \texttt{runs/scifact/test\_retrieval\_diagnostics.csv}
+  \item Quality-vs-cost: \texttt{runs/scifact/test\_phase2\_quality\_cost.csv}
+  \item Held-out subset + regret: \texttt{runs/scifact/test\_heldout\_subset\_metrics.csv}
+  \item Always-Rerank: \texttt{runs/scifact/test\_always\_rerank\_metrics.json}, \texttt{...\_always\_rerank.csv}
+  \item Threshold ablation: \texttt{runs/scifact/test\_threshold\_ablation.csv}
+  \item QPP features + correlations: \texttt{runs/scifact/test\_qpp\_features.csv}, \texttt{reports/tables/qpp\_correlations.\{md,csv\}}
+  \item Conformal results: \texttt{runs/scifact/test\_conformal\_results\{,\_mean\}.csv}
+  \item Figures: \texttt{reports/figures/phase3\_pareto.png}, \texttt{...qpp\_correlations.png}, \texttt{...phase3\_conformal\_risk\_coverage.png}
+\end{itemize}
+
+\paragraph{Các lệnh chính.}
+\begin{verbatim}
+python scripts/prepare_scifact.py --config configs/scifact.yaml --split test
+python scripts/run_base_retrieval.py --config configs/scifact.yaml --split test
+python scripts/create_oracle_labels.py --config configs/scifact.yaml --split test
+python scripts/evaluate_phase2_routers.py --config configs/scifact.yaml --split test
+python scripts/calibrate_llm_router_scores.py --config configs/scifact.yaml \
+    --calibration-split test --calibration-fraction 0.5 --seed 13
+python scripts/run_selective_rerank.py --config configs/scifact.yaml --split test \
+    --rerank-all --rerank-top-k 20 --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
+python scripts/run_threshold_ablation.py --config configs/scifact.yaml --split test
+python scripts/run_qpp_signals.py --config configs/scifact.yaml --split test
+python scripts/run_conformal_rerank.py --config configs/scifact.yaml --split test
+# Bổ sung cho bản này (rigor):
+python scripts/evaluate_phase2_routers.py --config configs/scifact.yaml \
+    --split test --train-split train           # classical router train->test (hết leakage)
+python scripts/run_rrf_ablation.py --config configs/scifact.yaml --split test   # RRF k ablation
+python scripts/run_significance_tests.py --config configs/scifact.yaml --split test  # paired bootstrap
+python scripts/run_latency_benchmark.py --config configs/scifact.yaml --split test   # latency thực đo
+# Validation experiments (Phần 7):
+python scripts/run_all_validation.py    # chạy tất cả thí nghiệm xác nhận trong một lệnh
+\end{verbatim}
+
+\paragraph{Artifact bổ sung.}
+\texttt{runs/scifact/test\_rrf\_ablation.csv},
+\texttt{test\_significance\_tests.csv},
+\texttt{test\_latency\_benchmark.json};
+bảng \texttt{reports/tables/table\_rrf\_ablation.md},
+\texttt{table\_significance.md},
+\texttt{table\_latency.md}.
+
+\section{Tham vấn NotebookLM}
+\label{app:notebooklm}
+NotebookLM notebook \emph{``Researching SEG''} được tham vấn ngày 02/06/2026. Lời khuyên là: đóng khung báo
+cáo quanh đánh đổi giữa retrieval effectiveness và computational cost; nhóm related work thành base
+retrieval, routing và adaptive reranking; nêu rõ caveat về classical-router leakage; và trình bày Phase~3
+selective reranking như công việc đang tiến hành chứ không phải kết quả đã hoàn tất tại thời điểm đó.

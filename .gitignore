@@ -1,14 +1,39 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
 .venv/
+venv/
+ENV/
 
 # Notebooks
 .ipynb_checkpoints/
 
-# Data, runs, and artifacts
+# Testing
+.hypothesis/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / Agent tooling
+.kiro/
+.claude/
+.agent_scratchpad.md
+
+# Data, runs, and artifacts (large/generated)
 /data/
 /runs/
 *.zip
+
+# Generated predictions / scratch outputs
 /test_llm_router_predictions.csv
-/.agent_scratchpad.md
+/tasks.md
+
+# PDFs (reference papers — not source)
+*.pdf

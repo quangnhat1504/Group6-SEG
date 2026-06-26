@@ -1,0 +1,212 @@
+\section{Phương pháp (Method)}
+\label{sec:method}
+
+Phần này mô tả toàn bộ pipeline đa tầng. Hình~\ref{fig:workflow} tổng hợp kiến trúc: từ một query khoa
+học, hệ thống sinh candidate bằng các base retriever, (tùy chọn) chọn route, rồi dùng các tín hiệu bất
+định rẻ tiền cùng một ngưỡng có bảo đảm conformal để quyết định \emph{khi nào} gọi cross-encoder reranking.
+
+%================= TikZ WORKFLOW =================
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=0.9cm and 1.2cm,
+  font=\small,
+  stage/.style={rectangle, rounded corners=3pt, draw=cstage!80, fill=cstage!12,
+                text width=2.6cm, minimum height=1.0cm, align=center, thick},
+  data/.style={rectangle, rounded corners=2pt, draw=cdata!80, fill=cdata!12,
+               text width=2.4cm, minimum height=0.9cm, align=center},
+  gate/.style={diamond, aspect=2, draw=cgate!85, fill=cgate!14,
+               text width=2.0cm, align=center, inner sep=1pt, thick},
+  arr/.style={-{Stealth[length=2.2mm]}, thick, draw=black!65},
+  lbl/.style={font=\scriptsize\itshape, text=black!60}
+]
+
+% Input
+\node[data] (q) {Query khoa học\\(claim)};
+
+% Base retrievers
+\node[stage, right=of q] (bm25) {BM25\\\scriptsize sparse lexical};
+\node[stage, above=0.35cm of bm25] (dense) {Dense\\\scriptsize SciNCL};
+\node[stage, below=0.35cm of bm25] (rrf) {Hybrid RRF\\\scriptsize $k{=}60$};
+
+% Routing / candidate pool
+\node[stage, right=1.6cm of bm25, text width=2.7cm] (cand) {Candidate pool\\Hybrid top-100};
+
+% QPP signals
+\node[stage, right=of cand, text width=2.8cm, fill=cstage!18] (qpp)
+   {QPP signals\\\scriptsize Hybrid max score,\\ \scriptsize NQC, score-gap};
+
+% Conformal gate
+\node[gate, right=of qpp] (gate) {Conformal\\gate $\lambda(\alpha)$};
+
+% Rerank vs skip
+\node[stage, right=1.4cm of gate, text width=2.7cm, fill=cgate!12, draw=cgate!80] (rerank)
+   {Cross-encoder rerank\\\scriptsize MiniLM-L-6-v2\\\scriptsize Hybrid top-20};
+\node[data, below=1.1cm of rerank] (skip) {Giữ thứ tự\\Hybrid (skip)};
+
+% Output
+\node[data, right=1.2cm of rerank, text width=2.2cm] (out) {Ranked list\\cuối cùng};
+
+% Arrows base
+\draw[arr] (q) -- (bm25);
+\draw[arr] (q.north) to[bend left=12] (dense.west);
+\draw[arr] (q.south) to[bend right=12] (rrf.west);
+\draw[arr] (dense) -- (cand);
+\draw[arr] (bm25) -- (cand);
+\draw[arr] (rrf) -- (cand);
+\draw[arr] (cand) -- (qpp);
+\draw[arr] (qpp) -- (gate);
+
+% Gate decisions
+\draw[arr, draw=cgate!85] (gate) -- node[lbl, above]{uncertain} (rerank);
+\draw[arr, draw=cdata!75] (gate.south) |- node[lbl, below, pos=0.25]{confident} (skip);
+
+\draw[arr] (rerank) -- (out);
+\draw[arr] (skip.east) -| (out.south);
+
+% Background groupings
+\begin{scope}[on background layer]
+  \node[draw=cstage!40, dashed, rounded corners, fit=(dense)(bm25)(rrf),
+        inner sep=6pt, label={[lbl]above:Phase 1: Base retrieval}] {};
+  \node[draw=cgate!40, dashed, rounded corners, fit=(qpp)(gate)(rerank)(skip),
+        inner sep=8pt, label={[lbl]above:Phase 3: Uncertainty-aware selective reranking}] {};
+\end{scope}
+
+\end{tikzpicture}%
+}
+\caption{Workflow của hệ thống truy hồi đa tầng nhận biết bất định. Phase~1 sinh candidate bằng BM25,
+Dense/SciNCL và Hybrid RRF. Phase~2 (query routing, không vẽ chi tiết để gọn) có thể chọn route cho từng
+query. Phase~3 tính các tín hiệu \emph{QPP} rẻ tiền và dùng một \emph{conformal gate} với ngưỡng
+$\lambda(\alpha)$ để quyết định: query \emph{uncertain} được đưa qua cross-encoder rerank trên Hybrid
+top-20, query \emph{confident} giữ nguyên thứ tự Hybrid (skip). Cross-encoder --- tầng đắt nhất --- chỉ
+chạy khi tín hiệu rẻ dự báo nó đáng giá.}
+\label{fig:workflow}
+\end{figure}
+
+\subsection{Dataset và biểu diễn tài liệu}
+\label{sec:method:data}
+Các thí nghiệm dùng SciFact ở định dạng BEIR:
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+  \item Kích thước corpus: 5{,}183 documents.
+  \item Test split: 300 queries. \quad Train split: 809 queries.
+  \item Text sử dụng: chỉ \emph{title} và \emph{abstract}.
+  \item Retrieval depth: top-100.
+\end{itemize}
+PDF toàn văn và passage chunking được cố ý loại trừ trong scope hiện tại. Điều này giữ retrieval unit
+khớp với SciFact abstract và giữ thí nghiệm khả thi.
+
+\subsection{Base retrievers}
+\label{sec:method:base}
+Hệ thống hiện thực ba base retrieval route:
+\begin{description}[leftmargin=1.6em,style=nextline,itemsep=2pt]
+  \item[BM25.] Một sparse lexical retriever dùng text title và abstract.
+  \item[Dense.] Một SentenceTransformers dense retriever dùng \texttt{malteos/scincl} làm mô hình
+  embedding khoa học chính.
+  \item[Hybrid RRF.] Một hệ reciprocal-rank fusion trên các run BM25 và Dense/SciNCL, dùng $\texttt{rrf\_k}=60$.
+\end{description}
+Báo cáo dùng $\texttt{rrf\_k}=60$ như một setting RRF phổ biến cố định thay vì tune trên test set, nhằm giữ
+baseline hybrid đơn giản và tránh thêm một nguồn test-set selection bias. Ablation các tham số RRF được để
+lại cho future work.
+
+\subsection{Oracle route labels}
+\label{sec:method:oracle}
+Với mỗi query, hệ thống tính per-query $\ndcg$ cho BM25, Dense và Hybrid. Oracle route label là route có
+per-query $\ndcg$ tốt nhất. Các label này dùng để: (i) đo upper-bound của route selection; (ii) huấn luyện
+và đánh giá router; (iii) khảo sát class imbalance và distribution shift. Phân bố oracle được trình bày ở
+Bảng~\ref{tab:oracle-dist}; có một \emph{train/test distribution shift} rõ rệt: train thiên về Dense, còn
+test thiên về BM25.
+
+\begin{table}[h]
+\centering
+\caption{Phân bố oracle route label trên train và test split của SciFact.}
+\label{tab:oracle-dist}
+\begin{tabular}{lcc}
+\toprule
+Label & Train count & Test count \\
+\midrule
+BM25   & 195 & 226 \\
+Dense  & 477 & 49  \\
+Hybrid & 137 & 25  \\
+\midrule
+Tổng   & 809 & 300 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Các router baseline}
+\label{sec:method:routers}
+\begin{description}[leftmargin=1.6em,style=nextline,itemsep=2pt]
+  \item[Random Router.] Lấy mẫu đều BM25, Dense, hoặc Hybrid.
+  \item[Majority Router.] Luôn dự đoán nhãn oracle chiếm đa số (trên SciFact test là BM25).
+  \item[Oracle Router.] Dùng trực tiếp oracle label; đây là upper bound.
+  \item[Classical TF-IDF Logistic Regression Router.] Dùng TF-IDF features trên query text và balanced
+  logistic regression, \emph{fit trên train split và predict trên test split} (disjoint, không leakage) ---
+  một learned-router baseline hợp lệ song song với LLM router.
+  \item[Small LLM QLoRA Router.] Dùng Qwen2.5-0.5B với QLoRA fine-tuning. Mô hình chỉ nhận query text và
+  phải chọn đúng một nhãn: \texttt{bm25}, \texttt{dense}, hoặc \texttt{hybrid}.
+\end{description}
+
+\subsection{Label log-probability scoring}
+\label{sec:method:logprob}
+Router LLM đầu tiên dùng free-text generation và thường xuyên thất bại trong việc dự đoán BM25. Phiên bản
+cải tiến chấm \emph{log probability} của ba nhãn route được phép và chọn nhãn có điểm cao nhất. Cách này
+giảm lỗi định dạng output và khiến route confidence trở nên đo lường được.
+
+\subsection{Calibration và confidence-gated fallback}
+\label{sec:method:calib}
+Calibrated router áp dụng: (i) một class bias cho mỗi nhãn route; (ii) temperature scaling trên label
+score; (iii) một margin threshold giữa xác suất top-1 và top-2; (iv) fallback về Hybrid RRF khi label
+margin dưới ngưỡng. Setting held-out tốt nhất trong grid compact hiện tại: temperature $=1.0$, margin
+threshold $=0.3$, fallback $=$ Hybrid, biases $\text{BM25}=+0.75$, $\text{Dense}=+0.25$, $\text{Hybrid}=0.0$.
+
+Vì không có file dev prediction sinh riêng từ Colab, thí nghiệm calibration tách file test prediction theo
+query ID: 150 query cho calibration và 150 query rời rạc cho evaluation. Điều này tránh tune và evaluate
+trên cùng query, nhưng vẫn chưa phải một setup train/dev/test hoàn toàn sạch.
+
+\subsection{Retrieval-aware diagnostics}
+\label{sec:method:diag}
+Hệ thống cũng xuất các diagnostic nhẹ: BM25 / Dense / Hybrid top-score gap; BM25--Dense top-k overlap;
+Hybrid--BM25 và Hybrid--Dense overlap; average RRF agreement. Các diagnostic này chưa phải feature mô hình
+cuối cùng, nhưng giúp giải thích hành vi routing và nhận diện các tín hiệu bất định hữu ích (xem
+Phần~\ref{sec:results:qpp}).
+
+\subsection{Selective reranking}
+\label{sec:method:rerank}
+Phase~3 gồm: (i) một wrapper cross-encoder reranking với tự động phát hiện device CUDA/CPU; (ii) các tín
+hiệu bất định; (iii) một trigger selective reranking.
+
+Baseline \textbf{Always-Rerank} rerank Hybrid RRF top-20 candidate cho \emph{mọi} query bằng cross-encoder
+\texttt{cross-encoder/ms-marco-MiniLM-L-6-v2}. Trên một GPU RTX~5070~Ti, nó chạy ở 27~ms/query, nhanh hơn
+khoảng 14$\times$ so với CPU (khoảng 405~ms/query). Trigger \textbf{selective reranking} chỉ rerank các
+query bị gắn cờ \emph{uncertain}. Vì reranking chỉ sắp xếp lại Hybrid top-20, ranking cuối của mỗi query
+hoặc là thứ tự Hybrid gốc (skip) hoặc là thứ tự Always-Rerank (rerank); do đó một threshold sweep chỉ cần
+trộn hai run đã tính sẵn ở mỗi operating point mà không cần thêm GPU inference.
+
+\subsection{Query Performance Prediction làm tín hiệu trigger}
+\label{sec:method:qpp}
+Để tìm một trigger mạnh hơn nhưng vẫn label-free, chúng tôi tính các predictor QPP không giám sát trên các
+run BM25, Dense và Hybrid: Weighted Information Gain (WIG), Normalized Query Commitment (NQC), độ lệch
+chuẩn của top-k score, max score, và top-1/top-2 score gap, cộng với BM25--Dense top-10 disagreement. Mỗi
+predictor được tương quan (Kendall $\tau$) với hai per-query target: base $\ndcg$, và \emph{gain-from-reranking}
+(Always-Rerank $\ndcg$ trừ base $\ndcg$) --- chính là đại lượng mà một selective trigger cần dự báo.
+
+\subsection{Conformal risk-controlled selective reranking}
+\label{sec:method:conformal}
+Thay vì chọn ngưỡng bằng cách tối đa hóa calibration $\ndcg$ (không có bảo đảm), chúng tôi áp dụng
+\textbf{Conformal Risk Control} (CRC) để có bảo đảm finite-sample về chất lượng mất đi khi skip reranking.
+Một query được rerank khi tín hiệu trigger của nó dưới ngưỡng; per-query loss là phần nDCG bị bỏ đi do
+không rerank,
+\begin{equation}
+  \ell(q) = \max\!\big(0,\; \text{rerank\_ndcg}(q) - \text{base\_ndcg}(q)\big)
+  \label{eq:loss}
+\end{equation}
+cho các query bị skip, và $0$ cho các query được rerank. Loss này đơn điệu theo ngưỡng, nên CRC chọn ngưỡng
+coverage nhỏ nhất trên calibration split sao cho
+\begin{equation}
+  \frac{n \cdot \widehat{R} + B}{\,n + 1\,} \;\le\; \alpha,
+  \qquad B = 1,
+  \label{eq:crc}
+\end{equation}
+với $\widehat{R}$ là empirical risk và $B$ là loss bound, bảo đảm rằng kỳ vọng risk --- tức trung bình
+phần nDCG thiếu hụt so với Always-Rerank --- tối đa là $\alpha$ trên held-out query.

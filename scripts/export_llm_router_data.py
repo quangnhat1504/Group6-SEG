@@ -33,6 +33,12 @@ def main() -> None:
     parser.add_argument("--split", default="train")
     parser.add_argument("--output", default=None)
     parser.add_argument("--balance", action="store_true", help="Upsample minority labels to the largest label count.")
+    parser.add_argument(
+        "--balance-mode",
+        choices=("upsample", "undersample"),
+        default="upsample",
+        help="Sampling strategy used when --balance is set.",
+    )
     parser.add_argument("--seed", type=int, default=13)
     args = parser.parse_args()
 
@@ -67,11 +73,18 @@ def main() -> None:
         by_label: dict[str, list[dict]] = defaultdict(list)
         for row in rows:
             by_label[row["label"]].append(row)
-        max_count = max(len(group) for group in by_label.values())
+        target_count = (
+            max(len(group) for group in by_label.values())
+            if args.balance_mode == "upsample"
+            else min(len(group) for group in by_label.values())
+        )
         balanced_rows = []
         for label, group in by_label.items():
-            balanced_rows.extend(group)
-            balanced_rows.extend(rng.choices(group, k=max_count - len(group)))
+            if args.balance_mode == "upsample":
+                balanced_rows.extend(group)
+                balanced_rows.extend(rng.choices(group, k=target_count - len(group)))
+            else:
+                balanced_rows.extend(rng.sample(group, k=target_count))
         rng.shuffle(balanced_rows)
         rows = balanced_rows
 

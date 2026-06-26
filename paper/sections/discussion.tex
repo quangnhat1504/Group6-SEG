@@ -1,0 +1,95 @@
+\section{Phân tích Ablation và Chẩn đoán}
+\label{sec:analysis}
+
+\subsection{Dense-encoder ablation}
+Lựa chọn dense encoder ảnh hưởng mạnh. SPECTER hoạt động kém cho setup retrieval này dù được thiết kế cho
+biểu diễn tài liệu khoa học. MiniLM gần BM25 ở dense-only retrieval, nhưng fusion MiniLM yếu hơn fusion
+SciNCL. Điều này gợi ý rằng chất lượng standalone ranking của một dense model \emph{không} bảo đảm hành vi
+fusion tốt hơn.
+
+\subsection{Prompt và output-scoring ablation}
+Free-text generation không ổn định và hầu như không sinh ra dự đoán BM25. Label log-probability scoring đã
+khắc phục vấn đề kiểm soát output và cải thiện routing accuracy từ $0.1633$ lên $0.4300$ so với run QLoRA
+dựa-trên-generation trước đó.
+
+\subsection{Class-balance follow-up (negative result)}
+\label{sec:analysis:balance}
+Để chống class imbalance, một QLoRA dataset \emph{balanced} (undersampled, 411 ví dụ chia đều ba nhãn) đã
+được export và một run Colab đã được trả về. Tuy nhiên kết quả \emph{kém hơn} bản LogProb không cân bằng:
+accuracy $= 0.163$, Macro-F1 $= 0.151$, $\ndcg = 0.6136$, $\rechun = 0.9449$, $\mrr = 0.5666$ trên 300
+test query. Quan trọng hơn, output của model bị \emph{degenerate} (ví dụ sinh ra chuỗi như
+\texttt{``bmsystemsystemsystem''}), cho thấy việc undersampling xuống 411 ví dụ làm Qwen2.5-0.5B mất ổn định
+sinh nhãn. Đây là một negative result hữu ích: với small LLM ở quy mô này, cân bằng lớp bằng undersampling
+mạnh \emph{không} cứu được routing dưới distribution shift; label log-probability scoring (Phần~\ref{sec:results:router})
+cộng calibration là hướng hiệu quả hơn. Vì vậy báo cáo dùng bản LogProb + calibration làm LLM router chính,
+và xem balanced run như một ablation thất bại có ghi nhận.
+
+\subsection{Calibration và fallback}
+Held-out calibration chọn bias và margin threshold để route trực tiếp các query tự tin và fallback về
+Hybrid khi confidence thấp. Cách này cải thiện $\ndcg$ trên held-out subset. Đánh đổi là fallback làm tăng
+chi phí và có thể giảm routing accuracy vì retrieval effectiveness và việc khớp đúng oracle label không
+luôn đồng nhất.
+
+\subsection{Routing regret}
+Router accuracy không đủ để đánh giá một retrieval router. Nếu route được chọn khác oracle label nhưng truy
+hồi gần như cùng top document, tổn thất thực tế có thể nhỏ. Vì vậy phân tích held-out cũng báo cáo Mean
+Regret@10. Calibrated held-out route có Mean Regret@10 $=0.0708$, so với $0.0893$ của BM25 và $0.1025$ của
+Hybrid RRF trên cùng 150 query --- củng cố quan điểm rằng router nên được đánh giá theo retrieval quality và
+regret, không chỉ theo label accuracy.
+
+\subsection{Retrieval diagnostics}
+Bảng~\ref{tab:diag} cho thấy các query có oracle BM25 có BM25 score gap trung bình cao hơn nhiều so với
+query oracle Dense hoặc Hybrid. Điều này gợi ý BM25 score gap là một feature routing/uncertainty hữu ích:
+nó có thể giúp nhận diện các query mà lexical matching đã đủ tự tin và dense/hybrid ít cần thiết hơn.
+
+\begin{table}[h]
+\centering
+\caption{Retrieval diagnostics theo oracle label trên SciFact test.}
+\label{tab:diag}
+\setlength{\tabcolsep}{4pt}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Oracle Label & Count & Avg BM25 Gap & Avg Dense Gap & Avg BD-Overlap@10 & Avg RRF Agree@10 \\
+\midrule
+BM25   & 226 & 11.67 & 0.0178 & 0.1711 & 0.3634 \\
+Dense  & 49  & 3.56  & 0.0143 & 0.2258 & 0.4141 \\
+Hybrid & 25  & 3.51  & 0.0082 & 0.1353 & 0.3462 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Train/Test distribution shift}
+Train oracle labels thiên về Dense, còn test thiên về BM25. Vài lý do hợp lý: (i) oracle label định nghĩa
+bởi per-query $\ndcg$, nên thay đổi top-rank nhỏ có thể lật nhãn của một query ngay cả khi chất lượng route
+gần nhau; (ii) các split SciFact có thể chứa hỗn hợp khác nhau về loại claim, độ đặc thù thuật ngữ, và mức
+trùng lexical với abstract; (iii) Dense/SciNCL có thể truy hồi candidate set rộng hơn nhưng kém ổn định ở
+đúng top-rank nơi $\ndcg$ nhạy cảm; (iv) BM25 có thể áp đảo các test query chứa thuật ngữ y sinh/khoa học
+đặc trưng xuất hiện trực tiếp trong title và abstract. Shift này giải thích vì sao một Small LLM huấn luyện
+trên train label có xu hướng overpredict Dense trên test, và thúc đẩy calibration, fallback, cùng các
+retrieval-aware feature tương lai.
+
+\section{Thảo luận (Discussion)}
+\label{sec:discussion}
+
+Kết quả hiện tại củng cố ba quan sát chính.
+
+\emph{Thứ nhất}, static Hybrid RRF là một base system mạnh, đặc biệt cho $\rechun$. Điều này khiến nó là
+candidate generator tốt cho reranking, nhưng không nhất thiết là route mặc định rẻ nhất.
+
+\emph{Thứ hai}, oracle routing có headroom lớn. Khoảng cách giữa Hybrid RRF $\ndcg = 0.6583$ và Oracle
+Router $\ndcg = 0.7617$ cho thấy việc chọn retrieval theo query có thể quan trọng.
+
+\emph{Thứ ba}, Small LLM router đơn lẻ chưa đủ mạnh để là đóng góp chính. Nó nhạy với class imbalance và
+distribution shift, và không rõ ràng vượt Majority Router trên toàn test set. Tuy nhiên score calibration,
+fallback, phân tích regret, và retrieval-aware diagnostics khiến nó hữu ích như một thành phần của một hệ
+thống truy hồi nhận biết bất định rộng hơn.
+
+Khung mạnh nhất cho dự án cuối do đó là:
+\begin{quote}
+\itshape
+Dùng routing rẻ và các tín hiệu bất định để quyết định \emph{khi nào} dùng các tầng retrieval hoặc
+reranking đắt tiền hơn.
+\end{quote}
+Khung này khớp với bằng chứng hiện tại hơn là tuyên bố rằng Small LLM routing đơn lẻ giải quyết được truy
+hồi khoa học.

@@ -1,0 +1,35 @@
+\begin{abstract}
+\noindent
+Tìm kiếm bài báo khoa học đòi hỏi cả \emph{exact lexical matching} lẫn \emph{semantic matching}.
+Các phương pháp lexical như BM25 mạnh với những claim giàu thuật ngữ, trong khi dense encoder
+có thể tìm được bằng chứng liên quan về ngữ nghĩa dù không trùng từ khóa. Một hệ thống hybrid
+tĩnh giúp tăng candidate recall nhưng cũng làm tăng chi phí tính toán và đôi khi làm loãng kết quả
+top-ranked khi một họ retrieval rõ ràng phù hợp hơn cho một query cụ thể. Báo cáo này trình bày một
+hệ thống truy hồi quy mô sinh viên (student-scale) cho bài toán truy hồi claim khoa học trên
+\textbf{SciFact}. Pipeline đã hiện thực gồm BM25, dense retrieval với SciNCL, Reciprocal Rank Fusion
+(RRF), oracle route labels, một classical router chẩn đoán, các Small LLM query router, LLM score
+calibration, confidence-gated fallback, và retrieval-aware diagnostics. Trên SciFact test split,
+Hybrid RRF đạt base-retrieval recall mạnh nhất ($\rechun = 0.9560$) và base $\ndcg$ tốt nhất
+($0.6583$). Oracle routing cho thấy còn nhiều headroom ($\ndcg = 0.7617$). Một router Qwen2.5-0.5B
+được fine-tune bằng QLoRA với label log-probability scoring đạt $\ndcg = 0.6372$; sau held-out
+calibration và confidence-gated fallback đạt $\ndcg = 0.6674$ trên 150 held-out query.
+
+Trọng tâm của báo cáo là Phase~3: \textbf{selective reranking nhận biết bất định}. Baseline
+Always-Rerank dùng cross-encoder nhẹ MS~MARCO MiniLM-L-6-v2 trên Hybrid top-20 đạt $\ndcg = 0.6939$
+ở 27~ms/query trên một GPU, cải thiện so với Hybrid RRF nhưng vẫn dưới Oracle Router. Một threshold
+ablation vẽ toàn bộ đường cong effectiveness-vs-cost; trên held-out split không rò rỉ, selective
+reranking thu lại phần lớn lợi ích của Always-Rerank ở khoảng 74\% rerank coverage. Hai nâng cấp khiến
+trigger trở nên có nguyên tắc: một tín hiệu \emph{query-performance-prediction} (QPP) không giám sát
+--- Hybrid maximum fused score --- dự báo \emph{gain-from-reranking} tốt hơn gần ba lần so với heuristic
+score-gap ban đầu; và \emph{Conformal Risk Control} chọn ngưỡng trigger với bảo đảm rằng kỳ vọng phần
+nDCG mất đi so với Always-Rerank nằm trong ngân sách $\alpha$. Ở $\alpha = 0.02$, trigger QPP-cộng-conformal
+tôn trọng bảo đảm ở 61\% coverage (so với 72\% của heuristic) trong khi vẫn đạt chất lượng ngang
+Always-Rerank. Bằng chứng cho thấy hướng đi mạnh nhất không phải routing đơn thuần, mà là một hệ thống
+đa tầng nhận biết bất định, dùng các tín hiệu rẻ và có nguyên tắc để quyết định --- kèm bảo đảm thống kê
+--- \emph{khi nào} cross-encoder reranking đắt đỏ là đáng giá.
+
+\medskip
+\noindent\textbf{Keywords:} information retrieval, scientific search, SciFact, BM25, dense retrieval,
+hybrid retrieval, query routing, QLoRA, uncertainty, selective reranking, query performance prediction,
+conformal risk control.
+\end{abstract}

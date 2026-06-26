@@ -1,0 +1,59 @@
+\section{Công trình liên quan (Related Work)}
+\label{sec:related}
+
+Chúng tôi nhóm related work theo bốn trục khớp với pipeline: (i) truy hồi claim khoa học và SciFact;
+(ii) sparse, dense, hybrid và các biến thể learned-sparse / late-interaction; (iii) routing và
+cost-aware inference; (iv) fine-tuning hiệu quả, reranking, query performance prediction, và conformal
+risk control.
+
+\subsection{Truy hồi claim khoa học và SciFact}
+SciFact giới thiệu bài toán xác minh claim khoa học: chọn các research abstract chứa bằng chứng cho một
+claim, rồi xác định rationale và nhãn như SUPPORTS hoặc REFUTES~\citep{wadden2020scifact}. Benchmark
+\textbf{BEIR} sau đó đóng gói SciFact như một phần của một benchmark zero-shot retrieval đa miền, thuận
+tiện cho việc đánh giá retriever dưới một interface truy hồi nhất quán~\citep{thakur2021beir}. Dự án này
+áp dụng setup SciFact theo phong cách BEIR và đánh giá việc một claim có truy hồi đúng các abstract liên
+quan của nó hay không.
+
+\subsection{Sparse, Dense và Hybrid retrieval}
+BM25 là một hàm xếp hạng lexical cổ điển xuất phát từ probabilistic relevance framework~\citep{robertson2009bm25};
+nó vẫn là một baseline mạnh cho tìm kiếm chuyên ngành vì exact term matching thường quan trọng. Dense
+retrieval biểu diễn query và document thành vector và xếp hạng theo embedding similarity. Trong miền khoa
+học, \textbf{SPECTER} dùng citation-informed transformer pretraining cho scientific document
+embeddings~\citep{cohan2020specter}, còn \textbf{SciNCL} cải thiện biểu diễn tài liệu khoa học bằng
+neighborhood contrastive learning trên thông tin citation graph~\citep{ostendorff2022scincl}. Hybrid
+retrieval kết hợp sparse và dense; dự án dùng \textbf{Reciprocal Rank Fusion} (RRF), một phương pháp rank
+fusion đơn giản nhưng hiệu quả để kết hợp các hệ thống retrieval khác nhau~\citep{cormack2009rrf}.
+
+\subsection{Learned-sparse và Late-interaction}
+\textbf{SPLADE} học các biểu diễn sparse lexical expansion vẫn tương thích với inverted index trong khi
+cải thiện chất lượng neural retrieval~\citep{formal2021splade}. \textbf{ColBERT} dùng contextualized late
+interaction để có matching mạnh hơn trong khi precompute biểu diễn document offline~\citep{khattab2020colbert}.
+Đây là các phương án thay thế quan trọng, nhưng \emph{chưa} được hiện thực trong phase hiện tại vì dự án
+giới hạn trong khung 3 tháng và phần cứng vừa phải; chúng được thảo luận như related work và hướng mở rộng.
+
+\subsection{Routing và Cost-aware inference}
+Các phương pháp routing chọn giữa các hệ thống thay thế dựa trên input. Trong bối cảnh LLM, \textbf{RouteLLM}
+nghiên cứu routing giữa mô hình mạnh và yếu để đánh đổi chất lượng--chi phí~\citep{ong2024routellm}.
+\textbf{RAGRouter} nghiên cứu routing trong các hệ retrieval-augmented generation nơi tài liệu truy hồi
+ảnh hưởng đến hành vi của mô hình hạ nguồn~\citep{zhang2025ragrouter}. Dự án này thích nghi ý tưởng routing
+cho first-stage scientific retrieval: với mỗi query, chọn BM25, Dense, hoặc Hybrid trước khi trả về tài
+liệu đã xếp hạng.
+
+\subsection{Fine-tuning hiệu quả, Reranking, QPP và Conformal control}
+\textbf{QLoRA} cho phép fine-tune LLM tiết kiệm bộ nhớ bằng 4-bit quantization và LoRA
+adapters~\citep{dettmers2023qlora}, khiến Small LLM routing khả thi trên Colab. Router LLM hiện dùng
+\textbf{Qwen2.5-0.5B} như một small instruction model~\citep{qwen2024report}. Cho Phase~3, tầng reranking
+dùng các cross-encoder nhẹ thuộc họ Sentence-Transformers MS~MARCO~\citep{sbert_msmarco_ce}; thiết kế này
+cũng được thúc đẩy bởi BERT-style passage reranking, nơi cross-encoder chấm điểm cặp query--passage một
+cách kết hợp và đã chứng minh hiệu quả trên các bài toán ranking kiểu MS~MARCO~\citep{nogueira2019passage}.
+\textbf{MiniLM} liên quan vì nó nén transformer thông qua self-attention distillation~\citep{wang2020minilm}.
+
+Hai nền tảng lý thuyết then chốt cho Phase~3 là Query Performance Prediction và Conformal Risk Control.
+\textbf{QPP} cho neural retrieval được khảo sát bởi Faggioli et al., những người chỉ ra rằng QPP cho dense
+và fused retrieval khó hơn cho lexical retrieval~\citep{faggioli2023qpp}; chúng tôi dùng các predictor cổ
+điển như Normalized Query Commitment (NQC)~\citep{shtok2012nqc} và các thống kê score. \textbf{Conformal
+Risk Control} (CRC)~\citep{angelopoulos2024crc} và \textbf{Learn-Then-Test}~\citep{angelopoulos2021ltt}
+cung cấp các bảo đảm finite-sample về một loss đơn điệu, mà chúng tôi áp dụng để chọn ngưỡng
+\emph{khi-nào-rerank} với một bảo đảm về phần nDCG bị mất so với Always-Rerank. Việc áp conformal cho
+\emph{quyết định khi nào rerank} (thay vì cho prediction set) là một góc còn ít được khai thác và là nguồn
+novelty của báo cáo.

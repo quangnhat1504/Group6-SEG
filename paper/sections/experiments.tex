@@ -1,0 +1,46 @@
+\section{Thiết lập thí nghiệm (Experimental Setup)}
+\label{sec:setup}
+
+\paragraph{Metrics.}
+Chúng tôi báo cáo $\ndcg$, $\recten$, $\rechun$, $\mrr$ cho retrieval; và Router Accuracy, Router
+Macro-F1 cho chất lượng routing. Với Phase~3, chúng tôi thêm \emph{rerank coverage} (tỉ lệ query được
+rerank) và \emph{latency} (ms/query) đo trên GPU.
+
+\paragraph{Ràng buộc phần cứng và tính khả thi.}
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+  \item Môi trường quy mô sinh viên (student-scale).
+  \item Pipeline Python chạy cục bộ.
+  \item Workflow Google Colab / single-GPU cho QLoRA.
+  \item Tránh full-text PDF indexing và các neural retrieval model rất nặng trong phase hiện tại.
+\end{itemize}
+
+\paragraph{Chi phí: latency thực đo.}
+Báo cáo dùng \emph{wall-clock latency thực đo} (ms/query) làm trục chi phí thống nhất cho cả pipeline.
+Bảng~\ref{tab:latency} đo per-query online latency của từng tầng trên đúng phần cứng (GPU RTX~5070~Ti,
+batch=1, sau 10 query warm-up), tách riêng chi phí offline một-lần (BM25 index build, dense document
+encoding) khỏi chi phí online per-query --- đại lượng so sánh được với cross-encoder. BM25 (11.25~ms) rẻ
+nhất, Dense/SciNCL (16.52~ms) ở giữa, Hybrid (33.97~ms) đắt nhất trong các base retriever, và cross-encoder
+rerank thêm 27.3~ms khi được kích hoạt.
+
+\begin{table}[h]
+\centering
+\caption{Per-query online latency thực đo trên SciFact test (5{,}183 docs, 300 queries, batch=1, GPU
+RTX~5070~Ti). Chi phí offline một-lần liệt kê riêng.}
+\label{tab:latency}
+\begin{tabular}{lrl}
+\toprule
+Stage & ms/query (online) & Offline một-lần \\
+\midrule
+BM25 (rank\_bm25)                       & 11.25 & index build 0.3\,s \\
+Dense / SciNCL                          & 16.52 & doc encode 54.0\,s (cuda:0) \\
+Hybrid RRF (BM25+Dense+fuse)            & 33.97 & --- \\
+Cross-encoder rerank (Hybrid top-20)   & 27.3  & --- (từ Always-Rerank) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Ghi chú về cost proxy cũ.}
+Một bản trước của báo cáo dùng cost unit trừu tượng (BM25=1, Dense=3, Hybrid=4) cho bảng cost--quality
+Phase~2. Latency thực đo ở Bảng~\ref{tab:latency} cho thấy tỉ lệ thực gần $1 : 1.5 : 3$, tức cost unit cũ
+\emph{phóng đại} chi phí tương đối của Dense. Vì vậy báo cáo ưu tiên latency thực; cost unit chỉ còn xuất
+hiện ở Bảng~\ref{tab:costquality} như một tham chiếu lịch sử, không phải thước đo cuối.

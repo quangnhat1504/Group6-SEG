@@ -51,10 +51,30 @@ python scripts/export_llm_router_data.py --config configs/scifact.yaml --split t
 Compress-Archive -Path runs\scifact\train_llm_router_data.jsonl, runs\scifact\test_llm_router_data.jsonl -DestinationPath runs\scifact\llm_router_colab_inputs.zip -Force
 ```
 
-Open `notebooks/qlora_router_training_colab.ipynb` in Colab, upload `runs/scifact/llm_router_colab_inputs.zip`, unzip it in the notebook file picker or upload the two JSONL files directly, then run all cells. The notebook downloads `test_llm_router_predictions.csv`.
+Open `notebooks/qlora_router_training_colab.ipynb` in Colab, upload `runs/scifact/llm_router_colab_inputs.zip`, unzip it in the notebook file picker or upload the two JSONL files directly, then run all cells. The notebook predicts with label log-probability scoring over `bm25`, `dense`, and `hybrid`, and downloads `test_llm_router_predictions.csv` with per-label scores/probabilities.
 
 Evaluate returned predictions locally:
 
 ```powershell
 python scripts/evaluate_llm_router_predictions.py --config configs/scifact.yaml --split test --predictions test_llm_router_predictions.csv
+```
+
+For the log-probability output, tune class bias and confidence-gated fallback from label scores:
+
+```powershell
+python scripts/calibrate_llm_router_scores.py --config configs/scifact.yaml --calibration-split test --calibration-predictions "runs/scifact/test_llm_router_predictions (2).csv"
+```
+
+When `--calibration-predictions` and `--eval-predictions` point to the same file, treat the result as an in-split diagnostic. For a cleaner experiment, pass held-out calibration predictions and separate eval predictions.
+
+Export lightweight retrieval diagnostics for router analysis:
+
+```powershell
+python scripts/analyze_retrieval_diagnostics.py --config configs/scifact.yaml --split test --predictions runs/scifact/test_test_llm_router_predictions_2_calibrated_predictions.csv
+```
+
+Create the Phase 2 quality-vs-cost comparison table:
+
+```powershell
+python scripts/compare_phase2_cost_quality.py --run-dir runs/scifact --split test
 ```

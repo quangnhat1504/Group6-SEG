@@ -1,0 +1,30 @@
+\begin{table}[H]
+\centering
+\caption{Cross-Dataset Generalizability: SciFact vs NFCorpus Pipeline Comparison}
+\label{tab:val_cross_dataset}
+\begin{tabular}{lrr}
+\toprule
+Metric & SciFact (300q) & NFCorpus (323q) \\
+\midrule
+BM25 ndcg@10 & 0.6523 & 0.1915 \\
+BM25 recall@10 & 0.7757 & 0.0955 \\
+BM25 recall@100 & 0.8731 & 0.1844 \\
+BM25 mrr@10 & 0.6184 & 0.3175 \\
+Dense/SciNCL ndcg@10 & 0.5640 & 0.2252 \\
+Dense/SciNCL recall@10 & 0.7233 & 0.0981 \\
+Dense/SciNCL recall@100 & 0.9082 & 0.2500 \\
+Dense/SciNCL mrr@10 & 0.5224 & 0.3698 \\
+Hybrid RRF k=60 ndcg@10 & 0.6583 & 0.2591 \\
+Hybrid RRF k=60 recall@10 & 0.8146 & 0.1324 \\
+Hybrid RRF k=60 recall@100 & 0.9560 & 0.2634 \\
+Hybrid RRF k=60 mrr@10 & 0.6157 & 0.4214 \\
+Always-Rerank (top-20) ndcg@10 & 0.6939 & 0.3226 \\
+Always-Rerank (top-20) recall@10 & 0.8286 & 0.1483 \\
+Always-Rerank (top-20) recall@100 & 0.9560 & 0.2634 \\
+Always-Rerank (top-20) mrr@10 & 0.6604 & 0.5290 \\
+Dataset & Coverage & Selective nDCG@10 & Realized Risk & Guarantee \\
+NFCorpus & 79.01\% & 0.2871 & 0.0120 & Yes \\
+SciFact & 60.67\% & 0.7280 & 0.0052 & Yes \\
+\bottomrule
+\end{tabular}
+\end{table}

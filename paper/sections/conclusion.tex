@@ -1,0 +1,50 @@
+\section{Hướng phát triển (Next Work)}
+\label{sec:nextwork}
+
+Phase~3 selective reranking đã hoàn tất, cùng hai nâng cấp có nguyên tắc: QPP trigger signal
+(Phần~\ref{sec:results:qpp}) và conformal risk-controlled threshold selection
+(Phần~\ref{sec:results:conformal}). Các thí nghiệm xác nhận bổ sung (Phần~\ref{sec:validation}) đã
+kiểm chứng: (i) không có data leakage trong feature selection, (ii) CRC generalize sang NFCorpus,
+(iii) selective reranking vượt Always-Rerank ngay cả trên base $k=5$ mạnh hơn, và (iv) top-20 là rerank
+depth tối ưu. Các hướng còn lại:
+
+\begin{enumerate}[leftmargin=2em,itemsep=3pt]
+  \item \textbf{Downstream-utility reranking.} Thêm một tầng rerank chấm candidate theo mức nó giúp một
+  small LLM \emph{xác minh claim} (semantic entropy / answer consistency của một generator Qwen2.5-0.5B/1.5B
+  trên bài toán SUPPORTS/REFUTES/NEI của SciFact), được gate bởi conformal trigger để tầng đắt này chỉ chạy
+  trên query uncertain. Đây là mở rộng giá trị-cao tự nhiên nối retrieval với downstream task của SciFact.
+  \item \textbf{Tăng cường QPP signal} để thu hẹp khoảng cách tới oracle-selective skyline, ví dụ kết hợp
+  các predictor bằng một small supervised regressor train trên calibration split, hoặc thêm clarity-style /
+  ensemble-disagreement feature.
+  \item \textbf{Domain-adaptive signal selection.} Kết quả cross-dataset cho thấy tín hiệu QPP tốt nhất
+  khác nhau giữa SciFact (\texttt{hybrid\_max}) và NFCorpus (\texttt{bm25\_std}). Công trình tương lai có
+  thể khám phá meta-learning hoặc domain-aware signal selection.
+  \item \textbf{Nếu còn thời gian}, sinh một file dev prediction CSV đúng nghĩa từ Colab và chạy lại LLM
+  calibration với một split train/dev/test sạch hơn.
+\end{enumerate}
+
+\section{Kết luận (Conclusion)}
+\label{sec:conclusion}
+
+Báo cáo trình bày một hệ thống truy hồi khoa học hoạt động được cho SciFact. Phase~1 thiết lập BM25,
+Dense/SciNCL, Hybrid RRF và dense ablation baseline. Phase~2 hiện thực query routing với Random, Majority,
+Oracle, một classical TF-IDF router chẩn đoán, và các Small LLM QLoRA router. Kết quả cho thấy Hybrid RRF
+là một base retriever mạnh và oracle routing cho headroom đáng kể. Small LLM router cải thiện sau label
+log-probability scoring và cải thiện thêm với calibration cùng confidence-gated fallback, nhưng vẫn bị giới
+hạn bởi distribution shift và class imbalance.
+
+Dự án do đó được định vị tốt nhất như một \emph{hệ thống truy hồi đa tầng nhận biết bất định} thay vì một
+hệ routing đơn thuần. Phase~3 gồm một Always-Rerank baseline cải thiện $\ndcg$ từ $0.6583$ lên $0.6939$ ở
+27~ms/query, một threshold ablation đầy đủ, một QPP trigger signal không giám sát dự báo gain-from-reranking
+tốt hơn nhiều so với heuristic ban đầu, và một conformal risk-controlled threshold tôn trọng một ngân sách
+nDCG có bảo đảm ở 61\% rerank coverage.
+
+Năm thí nghiệm xác nhận bổ sung (Phần~\ref{sec:validation}) củng cố kết quả: (i) selective reranking
+không làm giảm effectiveness có ý nghĩa thống kê so với Always-Rerank; (ii) feature selection không bị
+data leakage; (iii) bảo đảm CRC generalize sang NFCorpus; (iv) selective reranking vượt Always-Rerank ngay
+cả trên base mạnh hơn ($k=5$); (v) top-20 là rerank depth tối ưu --- tăng lên top-50 gần gấp đôi latency
+mà không cải thiện $\ndcg$.
+
+Bước tiếp theo mạnh nhất là một tầng downstream-utility reranking
+chấm document theo mức nó giúp một small LLM xác minh claim, được gate bởi conformal trigger này --- nối
+trực tiếp pipeline retrieval với bài toán verification của SciFact trong khi vẫn giữ bảo đảm về chi phí.

@@ -5,14 +5,29 @@ from dataclasses import dataclass
 from seg_retrieval.types import Document, Query, Run
 
 
+def _detect_device() -> str:
+    """Detect available device for inference."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda"
+    except ImportError:
+        pass
+    return "cpu"
+
+
 @dataclass
 class CrossEncoderReranker:
     model_name: str
+    device: str = None  # Auto-detect if None
 
     def __post_init__(self) -> None:
+        if self.device is None:
+            self.device = _detect_device()
+        
         from sentence_transformers import CrossEncoder
 
-        self.model = CrossEncoder(self.model_name)
+        self.model = CrossEncoder(self.model_name, device=self.device)
 
     def rerank(
         self,

@@ -1,0 +1,15 @@
+\begin{table}[H]
+\centering
+\caption{Rerank Depth Ablation: Top-20 vs Top-50 (nDCG@10, Latency)}
+\label{tab:val_depth}
+\begin{tabular}{lrrrr}
+\toprule
+Metric & Top-20 & Top-50 & Δ & Significant \\
+\midrule
+nDCG@10 & 0.6939 & 0.6916 & -0.0023 & No \\
+Recall@10 & 0.8286 & 0.8189 & -0.0097 & — \\
+MRR@10 & 0.6604 & 0.6597 & -0.0008 & — \\
+Latency (ms/query) & 27.29 & 52.48 & — & — \\
+\bottomrule
+\end{tabular}
+\end{table}

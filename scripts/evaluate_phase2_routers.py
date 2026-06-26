@@ -34,11 +34,25 @@ def make_majority_predictions(query_ids: list[str], oracle_labels: dict[str, str
     return {query_id: majority_label for query_id in query_ids}, majority_label
 
 
-def make_classical_predictions(queries: list[Query], oracle_labels: dict[str, str], labels: tuple[str, ...]) -> dict[str, str]:
+def make_classical_predictions(
+    train_queries: list[Query],
+    train_labels: dict[str, str],
+    eval_queries: list[Query],
+    labels: tuple[str, ...],
+) -> dict[str, str]:
+    """Fit the TF-IDF LogReg router on the TRAIN split, predict on the eval split.
+
+    Training and evaluating on disjoint splits removes the leakage of the earlier
+    in-split diagnostic and yields a valid learned-router baseline.
+    """
     router = TfidfLogRegRouter(labels=labels)
-    y_train = [oracle_labels[query.query_id] for query in queries]
-    router.fit(queries, y_train)
-    return {query.query_id: prediction.label for query, prediction in zip(queries, router.predict(queries))}
+    y_train = [train_labels[query.query_id] for query in train_queries if query.query_id in train_labels]
+    fit_queries = [query for query in train_queries if query.query_id in train_labels]
+    router.fit(fit_queries, y_train)
+    return {
+        query.query_id: prediction.label
+        for query, prediction in zip(eval_queries, router.predict(eval_queries))
+    }
 
 
 def summarize_router(
@@ -68,6 +82,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/scifact.yaml")
     parser.add_argument("--split", default="test")
+    parser.add_argument("--train-split", default="train",
+                        help="Split used to FIT the classical learned router (kept disjoint from --split).")
     parser.add_argument("--seed", type=int, default=13)
     args = parser.parse_args()
 
@@ -77,6 +93,13 @@ def main() -> None:
     labels_df = pd.read_csv(config.outputs.run_dir / f"{args.split}_oracle_labels.csv")
     oracle_labels = dict(zip(labels_df["query_id"].astype(str), labels_df["oracle_label"].astype(str)))
     query_ids = [query.query_id for query in queries if query.query_id in oracle_labels]
+
+    # Train-split queries + oracle labels for the (non-leaky) classical learned router.
+    train_queries = load_queries(config.dataset.data_dir / f"{args.train_split}_queries.jsonl")
+    train_labels_df = pd.read_csv(config.outputs.run_dir / f"{args.train_split}_oracle_labels.csv")
+    train_oracle_labels = dict(
+        zip(train_labels_df["query_id"].astype(str), train_labels_df["oracle_label"].astype(str))
+    )
 
     runs = {
         "bm25": load_run(config.outputs.run_dir / f"{args.split}_bm25.csv"),
@@ -99,8 +122,10 @@ def main() -> None:
             "Upper bound: uses oracle route labels directly.",
         ),
         "Classical TF-IDF LogReg Router": (
-            make_classical_predictions(queries, oracle_labels, config.router.label_order),
-            "Trained and evaluated on the same split; use as in-split sanity baseline.",
+            make_classical_predictions(
+                train_queries, train_oracle_labels, queries, config.router.label_order
+            ),
+            f"Trained on '{args.train_split}' split, evaluated on '{args.split}' split (no leakage).",
         ),
     }
 

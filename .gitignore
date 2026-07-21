@@ -31,9 +31,17 @@ htmlcov/
 /runs/
 *.zip
 
+# LaTeX build outputs
+*.aux
+*.bbl
+*.blg
+*.log
+*.toc
+
 # Generated predictions / scratch outputs
 /test_llm_router_predictions.csv
 /tasks.md
+/_tmp_pdf_visual_*/
 
 # PDFs (reference papers — not source)
 *.pdf

@@ -1,65 +1,60 @@
 \section{Giới thiệu và Động lực}
 \label{sec:intro}
 
-Tìm kiếm khoa học khác với tìm kiếm web tổng quát vì tài liệu liên quan thường phụ thuộc vào thuật ngữ
-chính xác, các từ viết tắt, các thực thể y sinh (biomedical entities), và bằng chứng đặc thù cho từng
-claim. Một claim khoa học có thể được trả lời tốt nhất bằng \emph{exact lexical overlap}, nhưng một claim
-khác lại cần \emph{semantic matching} qua các cách diễn đạt khác nhau. Vì lý do này, các hệ thống truy hồi
-hiện đại thường kết hợp sparse lexical search, dense embedding search, fusion, và neural reranking.
+Tìm kiếm bài báo khoa học là một bài toán khó vì tài liệu liên quan thường phụ thuộc vào thuật ngữ chính
+xác, từ viết tắt, thực thể y sinh, và bằng chứng đặc thù cho từng claim. Một hệ thống truy hồi lý tưởng
+cần kết hợp cả \emph{exact lexical matching} (từ khóa chính xác) và \emph{semantic matching} (ngữ nghĩa
+tương đồng). Trong nhiều năm, pipeline chuẩn để giải quyết bài toán này là: bắt đầu với BM25 (sparse
+lexical) và một dense retriever (như SciNCL), kết hợp chúng qua Reciprocal Rank Fusion (RRF), rồi áp dụng
+cross-encoder reranking ở tầng cuối để tinh chỉnh thứ hạng~\citep{thakur2021beir,cormack2009rrf}.
 
-Vấn đề thực tế là \textbf{chi phí}. BM25 rẻ và mạnh; dense retrieval bổ sung độ phủ ngữ nghĩa nhưng cần
-tính embedding và vector search; hybrid retrieval kết hợp cả hai ở chi phí cao hơn; còn cross-encoder
-reranking đắt hơn nữa vì nó chấm điểm cặp query--document một cách kết hợp (jointly). Một pipeline
-``one-size-fits-all'' do đó có thể lãng phí compute trên những query dễ, và đôi khi còn làm giảm chất
-lượng ranking khi trộn lẫn các tín hiệu không hữu ích cho một query cụ thể.
-
-Dự án này nghiên cứu câu hỏi sau:
+Tuy nhiên, pipeline này có ba vấn đề. \emph{Thứ nhất}, nó đắt: BM25, dense retrieval, RRF fusion, và
+cross-encoder reranking đều tiêu tốn tài nguyên tính toán. \emph{Thứ hai}, các tầng bổ sung không phải
+lúc nào cũng cải thiện chất lượng --- đặc biệt khi dense retriever gốc đã đủ mạnh. \emph{Thứ ba}, khi
+fine-tune dense retriever trên một miền chuyên biệt, có sự đánh đổi giữa specialist performance và
+generalist transfer: mô hình được fine-tune đạt kết quả cao trên miền đích nhưng suy giảm đáng kể trên
+các miền khác. Điều này dẫn đến ba câu hỏi nghiên cứu:
 
 \begin{quote}
 \itshape
-Một hệ thống truy hồi bài báo khoa học có thể dùng query routing và các tín hiệu bất định (uncertainty
-signals) để \emph{giữ nguyên chất lượng truy hồi} trong khi \emph{tránh các tầng đắt tiền không cần thiết}
-hay không?
+(1) Liệu một dense retriever hiện đại có thể thay thế toàn bộ pipeline đa tầng cũ với chất lượng tốt hơn
+và chi phí thấp hơn? (2) Làm thế nào để tận dụng một specialist fine-tuned trên miền chuyên biệt mà
+không làm mất khả năng transfer? (3) Có thể cải thiện transfer bằng các thao tác post-retrieval rẻ chi
+phí, không cần GPU inference bổ sung?
 \end{quote}
 
-Hiện thực hiện tại tập trung vào \textbf{SciFact}, một benchmark được xây dựng cho xác minh claim khoa học
-và truy hồi bằng chứng. Hệ thống hiện chỉ dùng text của \emph{title} và \emph{abstract}, giúp dự án khả thi
-trên phần cứng sinh viên và tránh các phức tạp của việc phân tích PDF toàn văn.
+Dự án này trả lời ba câu hỏi trên thông qua bốn đóng góp chính, được xác nhận trên sáu bộ dữ liệu BEIR:
 
-\paragraph{Đóng góp.}
-Báo cáo đóng góp các điểm sau, được tổ chức theo ba phase của dự án:
 \begin{enumerate}[leftmargin=2em,itemsep=2pt]
-  \item \textbf{Phase~1 --- Base retrieval \& ablation.} Thiết lập và so sánh BM25, Dense/SciNCL và
-  Hybrid RRF trên SciFact, cùng một dense-encoder ablation (SPECTER, MiniLM) để biện minh lựa chọn SciNCL.
-  \item \textbf{Phase~2 --- Query routing.} Hiện thực Random/Majority/Oracle router, một classical TF-IDF
-  router chẩn đoán, và một Small LLM QLoRA router (Qwen2.5-0.5B). Chúng tôi chỉ ra rằng \emph{label
-  log-probability scoring}, \emph{score calibration} và \emph{confidence-gated fallback} cải thiện độ tin
-  cậy của router, và đề xuất \emph{Mean Regret@10} như một thước đo công bằng hơn so với label accuracy.
-  \item \textbf{Phase~3 --- Selective reranking nhận biết bất định (đóng góp chính).} Xây dựng baseline
-  Always-Rerank có đo wall-clock latency, một threshold ablation đầy đủ, một tín hiệu \emph{QPP} không
-  giám sát dự báo gain-from-reranking, và một thủ tục \emph{Conformal Risk Control} chọn ngưỡng trigger
-  với bảo đảm thống kê về phần nDCG bị mất so với Always-Rerank.
+  \item \textbf{Chẩn đoán pipeline cũ.} Chúng tôi chỉ ra rằng toàn bộ kiến trúc đa tầng trước đây thực
+  chất đang \emph{bù đắp} cho một dense retriever rất yếu: SciNCL ($\ndcg = 0.5640$). Khi thay bằng
+  BGE-base-en-v1.5 (109M), kết quả dense đơn thuần đạt $\ndcg = 0.7376$ trên SciFact --- vượt qua
+  toàn bộ pipeline cũ (Hybrid RRF + cross-encoder = $0.6939$) với chi phí thấp hơn và độ trễ thấp hơn
+  99\%. Cross-encoder làm \emph{giảm} chất lượng có ý nghĩa ($-0.0374$, $p=0.015$) khi áp dụng lên BGE.
+
+  \item \textbf{Fine-tune BGE-small thành SciFact specialist.} Sử dụng recipe self-supervised từ
+  vstash~\citep{steffens2026vstash}, chúng tôi fine-tune BGE-small (33M) trên SciFact với RRF
+  disagreement signal. Mô hình đạt được $\ndcg = 0.7909$ trên SciFact --- vượt BGE-base (109M, $+0.0533$)
+  và vượt vstash reference cùng kích thước ($+0.0202$). Tuy nhiên, transfer average giảm từ $0.3251$
+  (BGE-base) xuống $0.3011$ --- một minh họa rõ ràng của specialization-generalization trade-off.
+
+  \item \textbf{Frozen B5 Batch Mode-Switch SGAF.} Chúng tôi đề xuất một controller rẻ chi phí, hoạt
+  động ở mức batch, chỉ dùng năm đặc trưng đã có sẵn từ hai lượt retrieval BGE-small/BGE-base (không
+  cần inference thêm). Controller tính batch shift score $S$ từ các z-score được chuẩn hóa trên SciFact
+  trainfit, và quyết định: nếu $S < 2.0$, giữ specialist-safe mode (BGE-small); nếu $S \ge 2.0$, chuyển
+  sang generalist-fallback mode (BGE-base). Frozen B5 đạt transfer average $\ndcg = 0.3249$, gần bằng
+  BGE-base ($0.3251$), trong khi vẫn giữ SciFact ở $0.8218$. Toàn bộ quyết định dựa trên thống kê
+  frozen từ miền nguồn, không cần label từ target dataset.
+
+  \item \textbf{Frozen P3 Rank-Window Smoothing.} Là một bước hậu xử lý CPU, chỉ kích hoạt trong các
+  batch đã được B5 chọn generalist-fallback. P3 pha một prior BGE-small yếu vào top-20 của ranking
+  BGE-base qua weighted RRF ($\alpha = 0.10$), cải thiện transfer average lên $0.3293$, vượt BGE-base
+  $+0.0042$. Chi phí bổ sung dưới $0.001$\,ms/query. P3 dương trên toàn bộ 6 dataset, significant
+  trên NFCorpus ($p=0.02$) và ArguAna ($p=0.02$).
 \end{enumerate}
 
-\noindent
-Thông điệp xuyên suốt: thay vì coi routing là đích đến, hệ thống nên dùng các tín hiệu \emph{rẻ và có
-nguyên tắc} để quyết định \emph{khi nào} chạy các tầng đắt tiền, kèm theo một bảo đảm có thể kiểm chứng
-về chất lượng đánh đổi.
-
-\section{Câu hỏi nghiên cứu}
-\label{sec:rq}
-
-Dự án được dẫn dắt bởi năm câu hỏi nghiên cứu (research questions):
-
-\begin{description}[leftmargin=3.2em,style=nextline,itemsep=3pt]
-  \item[\textbf{RQ1.}] BM25, dense retrieval và Hybrid RRF mạnh đến đâu trên SciFact title-and-abstract
-  retrieval?
-  \item[\textbf{RQ2.}] Còn bao nhiêu headroom nếu mỗi query được route tới phương pháp retrieval tốt
-  nhất của nó (oracle)?
-  \item[\textbf{RQ3.}] Một classical router hoặc một Small LLM router có thể xấp xỉ oracle route
-  selection hay không?
-  \item[\textbf{RQ4.}] LLM score calibration và confidence-gated fallback có cải thiện độ tin cậy của
-  router hay không?
-  \item[\textbf{RQ5.}] Đánh đổi cost--quality giữa static retrieval, query routing, và selective
-  reranking là như thế nào?
-\end{description}
+Phần còn lại của báo cáo được tổ chức như sau. Mục~\ref{sec:related} điểm qua các công trình liên quan.
+Mục~\ref{sec:method} mô tả kiến trúc pipeline, từ base retrieval đến SGAF. Mục~\ref{sec:setup} trình bày
+thiết lập thí nghiệm và chi phí. Mục~\ref{sec:results} báo cáo kết quả chính: base retrieval, SGAF mode
+switch, phase evolution, và external validation. Mục~\ref{sec:discussion} thảo luận ý nghĩa. Mục~\ref{sec:limitations}
+nêu các hạn chế. Mục~\ref{sec:conclusion} kết luận.

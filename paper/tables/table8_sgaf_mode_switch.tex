@@ -1,0 +1,38 @@
+\begin{table}[htbp]
+\centering
+\caption{Frozen B5/P3 SGAF specialist-generalist candidate. Frozen B5 keeps the SciFact specialist on source-like batches and escalates to BGE-base coverage under batch-level source shift; Frozen P3 adds a cheap rank-window smoothing step only inside generalist-fallback batches. Transfer Avg is computed over NFCorpus, FiQA, and SciDocs.}
+\label{tab:sgaf-mode-switch}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+Method & Avg nDCG@10 & Transfer Avg & $\Delta$ vs BGE-small & Transfer $\Delta$ vs BGE-base & SciFact $\Delta$ \\
+\midrule
+BGE-small specialist       & 0.4305 & 0.3011 & +0.0000 & -0.0239 & +0.0000 \\
+BGE-base generalist        & 0.4282 & 0.3251 & -0.0024 & +0.0000 & -0.0812 \\
+Current adaptive SGAF      & 0.4378 & 0.3098 & +0.0073 & -0.0152 & +0.0030 \\
+Frozen B5 mode-switch SGAF & 0.4492 & 0.3249 & +0.0186 & -0.0001 & +0.0030 \\
+\textbf{Frozen P3 rank-window SGAF} & \textbf{0.4524} & \textbf{0.3293} & \textbf{+0.0218} & \textbf{+0.0042} & \textbf{+0.0030} \\
+\bottomrule
+\end{tabular}
+}
+
+\vspace{0.5em}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrl}
+\toprule
+Dataset & Current adaptive & BGE-base & Frozen B5 & Frozen P3 & P3 $\Delta$ vs B5 & B5 mode \\
+\midrule
+SciFact  & 0.8218 & 0.7376 & 0.8218 & 0.8218 & +0.0000 & specialist-safe \\
+NFCorpus & 0.3559 & 0.3695 & 0.3692 & 0.3744 & +0.0052 & generalist-fallback \\
+FiQA     & 0.3774 & 0.3909 & 0.3909 & 0.3960 & +0.0051 & generalist-fallback \\
+SciDocs  & 0.1962 & 0.2147 & 0.2147 & 0.2173 & +0.0027 & generalist-fallback \\
+\bottomrule
+\end{tabular}
+}
+
+\vspace{0.5em}
+\footnotesize
+Frozen B5 recipe: batch shift threshold $2.0$, shifted uncertainty gain $6.0$, cap $1.0$, and SciFact trainfit BGE-base rescue classifier ($C=0.1$). Frozen P3 recipe: if and only if B5 selects generalist-fallback mode, rerank the top-20 window with specialist prior $\alpha=0.10$ and RRF constant $k=60$, then append the unchanged B5 tail. Duplicate-filtered SciFact remains unchanged versus current adaptive SGAF: current adaptive, Frozen B5, and Frozen P3 all score 0.8206 nDCG@10 after excluding the two known duplicate test queries.
+\end{table}

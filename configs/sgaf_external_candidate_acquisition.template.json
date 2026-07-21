@@ -1,0 +1,28 @@
+{
+  "candidate_slug": "TODO_lowercase_dataset_or_batch_id",
+  "candidate_role": "TODO_source_preservation_or_claim_transfer_or_biomedical_transfer_or_robustness",
+  "matrix_decision": "TODO_high_priority_or_second_wave_or_smoke_only",
+  "claim_scope": "TODO_external_claim_or_smoke_only",
+  "source_name": "TODO_dataset_source_name",
+  "source_url": "TODO_source_url_or_internal_snapshot_id",
+  "license_or_terms": "TODO_license_or_terms_reference",
+  "data_format": "TODO_beir_or_local_manifest",
+  "local_source_dir": "TODO_local_raw_dataset_dir",
+  "split": "TODO_official_test_or_frozen_heldout_split_name",
+  "qrels_availability": "TODO_hidden_until_after_ranking_or_public_not_used_for_selection",
+  "labels_used_for_selection": false,
+  "acquisition_status": "TODO_selected_or_downloaded_or_prepared_or_frozen",
+  "expected_files": [
+    "corpus.jsonl",
+    "queries.jsonl",
+    "qrels/TODO_split.tsv"
+  ],
+  "known_project_datasets_not_external": [
+    "scifact",
+    "nfcorpus",
+    "fiqa",
+    "scidocs"
+  ],
+  "contamination_notes": "TODO_explain_prior_use_or_cleanliness",
+  "next_command_after_pass": "python scripts\\prepare_sgaf_external_beir_dataset.py --input-dir <local_source_dir> --dataset-slug <candidate_slug> --split <split> --source-name <source_name>"
+}

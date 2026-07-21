@@ -1,0 +1,33 @@
+\begin{table}[htbp]
+\centering
+\caption{P4 residual specialist fallback ablation after Frozen P3. P4 is applied only in B5/P3 generalist-fallback batches. The selected variant uses the label-free feature BGE-small top score minus BGE-base top score and falls back to BGE-small for the top 10\% of queries by that feature.}
+\label{tab:p4-residual-fallback}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Held-out & P3 & P4 & $\Delta$ vs P3 & $\Delta$ vs BGE-base & Selected queries \\
+\midrule
+NFCorpus & 0.3744 & 0.3767 & +0.0023 & +0.0071 & 33 \\
+FiQA     & 0.3960 & 0.3977 & +0.0016 & +0.0067 & 65 \\
+SciDocs  & 0.2173 & 0.2198 & +0.0024 & +0.0051 & 100 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.5em}
+\begin{tabular}{llrrrr}
+\toprule
+Held-out & Baseline & Mean $\Delta$ & 95\% CI low & 95\% CI high & $p$ \\
+\midrule
+NFCorpus & Frozen P3 & +0.0023 & -0.0001 & +0.0049 & 0.0610 \\
+NFCorpus & BGE-base  & +0.0071 & +0.0002 & +0.0141 & 0.0442 \\
+FiQA     & Frozen P3 & +0.0016 & -0.0031 & +0.0072 & 0.5408 \\
+FiQA     & BGE-base  & +0.0067 & -0.0012 & +0.0150 & 0.0990 \\
+SciDocs  & Frozen P3 & +0.0024 & +0.0001 & +0.0048 & 0.0422 \\
+SciDocs  & BGE-base  & +0.0051 & +0.0014 & +0.0089 & 0.0076 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.5em}
+\footnotesize
+LOTO selects the same P4 variant in all transfer folds and all held-out deltas versus P3 are positive. However, only SciDocs is significant versus P3, so P4 is reported as an optional appendix ablation rather than the main method.
+\end{table}

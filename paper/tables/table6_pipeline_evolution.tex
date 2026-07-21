@@ -1,0 +1,43 @@
+\begin{table}[htbp]
+\centering
+\caption{Pipeline evolution --- from baseline to final results. All numbers on SciFact test (full 300 queries, identical split throughout), RTX 5070 Ti. Abstract cost units: BM25=1, Dense=3, Hybrid=4. CE latency measured at 27.5\,ms/query on GPU. Transfer Avg = mean nDCG@10 over NFCorpus (323q), FiQA (648q), SciDocs (1000q). nDCG@10 is primary metric per \cite{aljoofi2025scifact}.}
+\label{tab:pipeline-evolution}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrll}
+\toprule
+Stage & MAP@10 & nDCG@10 & MRR@10 & R@100 & Cost & Latency & Transfer Avg & vs Baseline \\
+\midrule
+\multicolumn{9}{l}{\textbf{Original Multi-Stage Pipeline (SciNCL-based, full 300 queries)}} \\
+\midrule
+1. BM25 only                        & 0.6071 & 0.6523 & 0.6184 & 0.8731 & 1     & $<$1ms   & 0.2247 & --- \\
+2. + SciNCL dense                   & 0.5077 & 0.5640 & 0.5224 & 0.9082 & 3     & 0.1ms    & --- & --- \\
+3. + RRF fusion ($k{=}60$)          & 0.6022 & 0.6583 & 0.6157 & 0.9560 & 4     & 1ms      & --- & baseline \\
+4. + CE Always-Rerank               & 0.6448 & 0.6939 & 0.6604 & 0.9560 & 4+CE  & 28ms     & --- & +7.1\% \\
+5. + CRC Selective ($\alpha{=}0.02$) & 0.6195 & 0.6740 & 0.6325 & 0.9560 & 4+0.61CE & 18ms & --- & +3.6\% \\
+\midrule
+\multicolumn{9}{l}{\textbf{Our Pipeline: BGE-base replaces SciNCL (full 300 queries)}} \\
+\midrule
+6. Swap SciNCL $\to$ BGE-base       & 0.6918 & 0.7376 & 0.7004 & 0.9700 & \textbf{3} & \textbf{0.3ms} & 0.3251 & \textbf{+14.9\%} \\
+7. + Adaptive RRF                   & \textbf{0.7111} & \textbf{0.7514} & \textbf{0.7210} & \textbf{0.9800} & 4 & 1.5ms & --- & \textbf{+18.1\%} \\
+8. + CE Always-Rerank (on BGE)      & 0.6627 & 0.7140 & 0.6784 & 0.9800 & 4+CE  & 29ms    & --- & +10.0\% \\
+\midrule
+\multicolumn{9}{l}{\textbf{Our Fine-tuned Model (SciFact-only)}} \\
+\midrule
+9. BGE-small FT (RRF disc., 33M)   & 0.7479 & \textbf{0.7909} & 0.7564 & 0.9783 & 3 & 0.3ms & --- & \textbf{+24.2\%} \\
+\midrule
+\multicolumn{9}{l}{\textbf{SGAF: Specialist-Generalist with Frozen B5/P3 (post-retrieval, CPU-only)}} \\
+\midrule
+10. Frozen B5 mode-switch SGAF      & ---   & 0.8218 & ---   & ---   & \textbf{3} & \textbf{0.3ms} & 0.3249 & \textbf{+28.5\%} \\
+11. \textbf{Frozen P3 rank-window SGAF} & --- & \textbf{0.8218} & --- & --- & \textbf{3} & \textbf{0.3ms} & \textbf{0.3293} & \textbf{+28.5\%} \\
+\midrule
+\multicolumn{9}{l}{\textbf{Upper Bounds}} \\
+\midrule
+Oracle Router (SciNCL-era)          & ---   & 0.7617 & 0.7337 & 0.9127 & ---   & ---      & --- & +15.7\% \\
+vstash rrf-v3 (33M, reference)      & 0.7227 & 0.7707 & 0.7316 & 0.9900 & 3     & 0.3ms    & --- & +20.0\% \\
+\bottomrule
+\end{tabular}
+}
+\vspace{4pt}
+\footnotesize
+\textit{Data provenance:} SciFact nDCG@10 and Transfer Avg from \texttt{final\_sgaf\_p3\_smoothing\_summary.csv}. Cost: B5/P3 are dense-only (3 units) with negligible CPU post-retrieval overhead ($\sim$0.01\,ms for routing, $\sim$0.001\,ms for smoothing).
+\end{table}

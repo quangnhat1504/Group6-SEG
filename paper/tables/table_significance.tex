@@ -1,0 +1,48 @@
+\begin{table}[htbp]
+\centering
+\caption{Paired t-test significance tests on nDCG@10 across all four datasets. Shapiro-Wilk test for normality (Wilcoxon fallback if violated). Bold rows indicate significant differences. *** $p<0.001$, ** $p<0.01$, * $p<0.05$.}
+\label{tab:significance}
+\setlength{\tabcolsep}{3.5pt}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Comparison & Dataset & Mean $\Delta$ nDCG@10 & $p$-value & Test & Sig. \\
+\midrule
+\multirow{4}{*}{BGE-base vs SciNCL}
+    & SciFact  & +0.1737 & 0.0000 & Wilcoxon & *** \\
+    & NFCorpus & +0.1444 & 0.0000 & Wilcoxon & *** \\
+    & FiQA     & +0.3110 & 0.0000 & Wilcoxon & *** \\
+    & SciDocs  & +0.0196 & 0.0082 & Wilcoxon & ** \\
+\midrule
+\multirow{4}{*}{Adaptive RRF vs BGE-base}
+    & SciFact  & +0.0137 & 0.1393 & Wilcoxon & n.s. \\
+    & NFCorpus & +0.0024 & 0.6880 & Wilcoxon & n.s. \\
+    & FiQA     & $-$0.0082 & 0.4836 & Wilcoxon & n.s. \\
+    & SciDocs  & $-$0.0050 & 0.3709 & Wilcoxon & n.s. \\
+\midrule
+\multirow{4}{*}{CE on ARF vs Adaptive RRF}
+    & SciFact  & $-$0.0374 & 0.0145 & Wilcoxon & * \\
+    & NFCorpus & $-$0.0045 & 0.7519 & Wilcoxon & n.s. \\
+    & FiQA     & +0.0083 & 0.9832 & Wilcoxon & n.s. \\
+    & SciDocs  & $-$0.0187 & 0.0000 & Wilcoxon & *** \\
+\midrule
+\multirow{4}{*}{Adaptive RRF vs BM25}
+    & SciFact  & +0.0991 & 0.0000 & Wilcoxon & *** \\
+    & NFCorpus & +0.0640 & 0.0000 & Wilcoxon & *** \\
+    & FiQA     & +0.1660 & 0.0000 & Wilcoxon & *** \\
+    & SciDocs  & +0.0601 & 0.0000 & Wilcoxon & *** \\
+\midrule
+\multirow{4}{*}{Adaptive RRF vs Hybrid RRF}
+    & SciFact  & +0.0328 & 0.0151 & Wilcoxon & * \\
+    & NFCorpus & +0.0173 & 0.0068 & Wilcoxon & ** \\
+    & FiQA     & +0.0436 & 0.0000 & Wilcoxon & *** \\
+    & SciDocs  & +0.0096 & 0.0000 & Wilcoxon & *** \\
+\midrule
+\multirow{4}{*}{Adaptive RRF vs CE on old RRF}
+    & SciFact  & +0.0575 & 0.0037 & Wilcoxon & ** \\
+    & NFCorpus & +0.0211 & 0.0069 & Wilcoxon & ** \\
+    & FiQA     & +0.1008 & 0.0000 & Wilcoxon & *** \\
+    & SciDocs  & +0.0264 & 0.0000 & Wilcoxon & *** \\
+\bottomrule
+\end{tabular}
+\end{table}

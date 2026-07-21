@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering
+\caption{RRF $k$ parameter ablation on SciFact test. Re-fusion of existing BM25 + BGE-base runs; no re-encoding needed. Recall@100 is invariant to $k$ because the candidate set is identical for all fusion variants.}
+\label{tab:rrf-ablation}
+\begin{tabular}{rrrrr}
+\toprule
+$\texttt{rrf\_k}$ & nDCG@10 & Recall@10 & Recall@100 & MRR@10 \\
+\midrule
+1            & 0.7434 & 0.8829 & 0.9693 & 0.7029 \\
+5            & 0.7374 & 0.8789 & 0.9693 & 0.6967 \\
+10           & 0.7357 & 0.8731 & 0.9693 & 0.6984 \\
+20           & 0.7301 & 0.8637 & 0.9693 & 0.6943 \\
+40           & 0.7217 & 0.8397 & 0.9693 & 0.6908 \\
+60 (default) & 0.7185 & 0.8297 & 0.9693 & 0.6895 \\
+80           & 0.7186 & 0.8297 & 0.9693 & 0.6896 \\
+100          & 0.7181 & 0.8289 & 0.9693 & 0.6894 \\
+200          & 0.7180 & 0.8289 & 0.9693 & 0.6894 \\
+\bottomrule
+\end{tabular}
+\end{table}

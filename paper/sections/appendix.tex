@@ -1,57 +1,83 @@
-\appendix
-\section{Tái lập (Reproducibility Notes)}
-\label{app:repro}
+\section{Phụ lục (Appendix)}
 
-\paragraph{Các artifact sinh ra chính.}
+\subsection{Tái lập (Reproducibility)}
+
+Toàn bộ thí nghiệm có thể tái lập từ repository \texttt{SEG}. Các file chính:
+
 \begin{itemize}[leftmargin=1.6em,itemsep=1pt]
-  \item Base retrieval metrics: \texttt{runs/scifact/test\_base\_metrics.json}
-  \item Router metrics: \texttt{runs/scifact/test\_phase2\_router\_metrics.csv}
-  \item LLM log-prob predictions: \texttt{runs/scifact/test\_llm\_router\_predictions (2).csv}
-  \item Calibrated held-out metrics: \texttt{..._calibrated\_heldout\_metrics.json}
-  \item Retrieval diagnostics: \texttt{runs/scifact/test\_retrieval\_diagnostics.csv}
-  \item Quality-vs-cost: \texttt{runs/scifact/test\_phase2\_quality\_cost.csv}
-  \item Held-out subset + regret: \texttt{runs/scifact/test\_heldout\_subset\_metrics.csv}
-  \item Always-Rerank: \texttt{runs/scifact/test\_always\_rerank\_metrics.json}, \texttt{...\_always\_rerank.csv}
-  \item Threshold ablation: \texttt{runs/scifact/test\_threshold\_ablation.csv}
-  \item QPP features + correlations: \texttt{runs/scifact/test\_qpp\_features.csv}, \texttt{reports/tables/qpp\_correlations.\{md,csv\}}
-  \item Conformal results: \texttt{runs/scifact/test\_conformal\_results\{,\_mean\}.csv}
-  \item Figures: \texttt{reports/figures/phase3\_pareto.png}, \texttt{...qpp\_correlations.png}, \texttt{...phase3\_conformal\_risk\_coverage.png}
+  \item \texttt{scripts/run\_dense\_model\_ablation.py} --- Dense model ablation
+  \item \texttt{scripts/run\_adaptive\_rrf.py} --- Adaptive RRF sweep và evaluation
+  \item \texttt{scripts/run\_asymmetric\_fusion.py} --- Weighted RRF sweep
+  \item \texttt{scripts/run\_sgaf\_p4\_residual\_fallback\_ablation.py} --- P4 residual specialist fallback ablation
+  \item \texttt{scripts/run\_multi\_dataset.py} --- Cross-dataset pipeline
+  \item \texttt{scripts/run\_significance\_tests.py} --- nDCG@10 + paired t-test significance tests
+  \item \texttt{scripts/train\_qlora\_router\_local.py} --- QLoRA router training (trainfit-only proper split)
+  \item \texttt{runs/scifact/test\_dense\_bge\_base.csv} --- BGE-base dense run
+  \item \texttt{runs/scifact/test\_hybrid\_arf.csv} --- Adaptive RRF run
+  \item \texttt{runs/\_sig\_tests.json} --- nDCG@10 + significance results (machine-readable)
 \end{itemize}
 
-\paragraph{Các lệnh chính.}
-\begin{verbatim}
-python scripts/prepare_scifact.py --config configs/scifact.yaml --split test
-python scripts/run_base_retrieval.py --config configs/scifact.yaml --split test
-python scripts/create_oracle_labels.py --config configs/scifact.yaml --split test
-python scripts/evaluate_phase2_routers.py --config configs/scifact.yaml --split test
-python scripts/calibrate_llm_router_scores.py --config configs/scifact.yaml \
-    --calibration-split test --calibration-fraction 0.5 --seed 13
-python scripts/run_selective_rerank.py --config configs/scifact.yaml --split test \
-    --rerank-all --rerank-top-k 20 --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
-python scripts/run_threshold_ablation.py --config configs/scifact.yaml --split test
-python scripts/run_qpp_signals.py --config configs/scifact.yaml --split test
-python scripts/run_conformal_rerank.py --config configs/scifact.yaml --split test
-# Bổ sung cho bản này (rigor):
-python scripts/evaluate_phase2_routers.py --config configs/scifact.yaml \
-    --split test --train-split train           # classical router train->test (hết leakage)
-python scripts/run_rrf_ablation.py --config configs/scifact.yaml --split test   # RRF k ablation
-python scripts/run_significance_tests.py --config configs/scifact.yaml --split test  # paired bootstrap
-python scripts/run_latency_benchmark.py --config configs/scifact.yaml --split test   # latency thực đo
-# Validation experiments (Phần 7):
-python scripts/run_all_validation.py    # chạy tất cả thí nghiệm xác nhận trong một lệnh
-\end{verbatim}
+\subsection{Statistical Significance Tests on nDCG@10}
+\label{sec:appendix:significance}
 
-\paragraph{Artifact bổ sung.}
-\texttt{runs/scifact/test\_rrf\_ablation.csv},
-\texttt{test\_significance\_tests.csv},
-\texttt{test\_latency\_benchmark.json};
-bảng \texttt{reports/tables/table\_rrf\_ablation.md},
-\texttt{table\_significance.md},
-\texttt{table\_latency.md}.
+Bảng~\ref{tab:significance} trình bày paired t-test với Shapiro-Wilk kiểm tra phân phối chuẩn (Wilcoxon
+fallback nếu vi phạm) trên nDCG@10 --- metric chính của \cite{aljoofi2025scifact} --- cho tất cả các cặp phương
+pháp trên cả bốn dataset. Các phát hiện chính: (1)~BGE-base cải thiện có ý nghĩa thống kê so với SciNCL
+trên mọi dataset (tất cả $p<0.001$); (2)~Adaptive RRF \emph{không} cải thiện có ý nghĩa so với
+BGE-base đơn thuần trên bất kỳ dataset nào (SciFact: $p=0.139$, NFCorpus: $p=0.688$, FiQA: $p=0.484$);
+(3)~Cross-encoder làm \emph{giảm} nDCG@10 của Adaptive RRF một cách có ý nghĩa trên SciFact ($p=0.015$)
+và không có hiệu quả trên NFCorpus/FiQA ($p>0.75$).
 
-\section{Tham vấn NotebookLM}
-\label{app:notebooklm}
-NotebookLM notebook \emph{``Researching SEG''} được tham vấn ngày 02/06/2026. Lời khuyên là: đóng khung báo
-cáo quanh đánh đổi giữa retrieval effectiveness và computational cost; nhóm related work thành base
-retrieval, routing và adaptive reranking; nêu rõ caveat về classical-router leakage; và trình bày Phase~3
-selective reranking như công việc đang tiến hành chứ không phải kết quả đã hoàn tất tại thời điểm đó.
+Vì bảng significance chính đã được trình bày trong Phần~\ref{sec:results:significance}, phụ lục không
+lặp lại bảng đó để tránh duplicate label khi biên dịch.
+
+\subsection{Các thí nghiệm phụ trợ (Ablation Results)}
+
+\subsubsection{P4 Residual Specialist Fallback}
+Bảng~\ref{tab:p4-residual-fallback} báo cáo P4 như một ablation phụ sau Frozen P3. P4 chỉ chạy trong
+các batch đã ở chế độ \texttt{generalist-fallback}; nó chọn 10\% query có tín hiệu
+\texttt{BGE-small top score - BGE-base top score} cao nhất và thay ranking P3 bằng ranking BGE-small.
+Kết quả LOTO đều dương, nhưng chỉ SciDocs có ý nghĩa thống kê so với P3. Vì vậy P4 được giữ như một
+extension tùy chọn, không thay thế Frozen P3 trong claim chính.
+
+\input{tables/table10_p4_residual_fallback}
+
+\subsubsection{Query Expansion (HyDE + RM3)}
+Thí nghiệm HyDE (sinh pseudo-abstract bằng Qwen2.5-0.5B) + RM3 (pseudo-relevance feedback) cho kết quả
+trung tính. BM25 + HyDE đạt nDCG@10 = 0.6280 ($-$0.0243 so với BM25 gốc 0.6523) --- HyDE làm giảm BM25
+vì pseudo-abstract từ mô hình 0.5B quá yếu cho các claim khoa học chuyên ngành. BM25 + RM3 cải thiện
+nhẹ (+0.0026 lên 0.6549). BM25 + HyDE + RM3 (full) đạt 0.6571, gần bằng Hybrid RRF (0.6583) nhưng kém
+xa BGE-base (0.7376). Kết quả này phù hợp với \citet{anonymous2025notallqueries}: LLM query rewriting
+không có hiệu quả có ý nghĩa trên SciFact.
+
+\subsubsection{BM25 Parameter Tuning}
+Quét $k_1 \in [0.8, 2.5]$ và $b \in [0.3, 0.9]$ trên 809 train query cho thấy $k_1=2.0, b=0.75$ là
+tối ưu trên train (nDCG@10=0.6580). Tuy nhiên, trên test, tuned BM25 \emph{giảm} từ 0.6523 xuống
+0.6510 --- một lần nữa xác nhận train/test distribution shift.
+
+\subsubsection{Learned QPP}
+Huấn luyện Ridge regression và LogisticRegression trên 17 QPP features từ 809 train queries để dự
+đoán gain-from-reranking. CV Kendall $\tau \approx 0.18$ trên train nhưng giảm xuống $\tau \approx 0.038$
+trên test. 12/17 features có KS-test $p < 0.001$ (train/test shift). Kết luận: unsupervised QPP
+signals vượt trội supervised methods dưới distribution shift.
+
+\subsection{So sánh với vstash}
+\citet{steffens2026vstash} báo cáo Adaptive RRF với BGE-small đạt 0.7263 trên SciFact. Pipeline của
+chúng tôi với BGE-base + Adaptive RRF đạt 0.7514 --- cao hơn +0.0251. Sự khác biệt đến từ: (i) BGE-base
+(768d) thay vì BGE-small (384d); (ii) tham số sigmoid được điều chỉnh cho SciFact. Cả hai pipeline
+đều xác nhận rằng cross-encoder reranking làm giảm chất lượng trên SciFact.
+
+\subsection{Danh sách đầy đủ các thí nghiệm đã thực hiện}
+\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
+  \item Dense model ablation (6 models)
+  \item Adaptive RRF sweep (72 cấu hình)
+  \item Weighted RRF sweep (SciNCL và BGE)
+  \item Cross-encoder Always-Rerank + CRC selective (trên tất cả cấu hình ARF)
+  \item BM25 parameter tuning (45 cấu hình)
+  \item HyDE query expansion (3 chế độ: HyDE, RM3, full)
+  \item Learned QPP regression (2 phương pháp)
+  \item Cross-dataset validation (4 datasets $\times$ 7 methods)
+  \item Full combo: tuned BM25 + ARF + CE + CRC
+  \item \textbf{nDCG@10 significance tests + SGAF paired bootstrap checks} (4 datasets $\times$ core pairwise comparisons)
+\end{itemize}
+Tổng cộng hơn 20 pipeline configurations được kiểm chứng trên 4 bộ dữ liệu BEIR với nDCG@10 là metric chính và các kiểm định significance tương ứng.

@@ -1,39 +1,38 @@
 \section{Hạn chế (Limitations)}
-\label{sec:limit}
+\label{sec:limitations}
 
-Một số hạn chế ở các bản trước đã được khắc phục trong phiên bản này: classical router nay train trên
-train / eval trên test (hết leakage, Phần~\ref{sec:results:router}); chi phí dùng latency thực đo thay cho
-cost unit trừu tượng (Bảng~\ref{tab:latency}); $\texttt{rrf\_k}$ đã được ablate (Bảng~\ref{tab:rrf}); và các
-so sánh chính đã có paired bootstrap CI (Bảng~\ref{tab:sig}). Các hạn chế \emph{còn lại}:
+\begin{enumerate}[leftmargin=2em,itemsep=3pt]
+  \item \textbf{Số lượng dataset.} Chúng tôi chỉ kiểm chứng trên bốn bộ dữ liệu BEIR (SciFact, NFCorpus,
+  FiQA, SciDocs). Mặc dù bao phủ bốn miền khác nhau (khoa học, y sinh, tài chính, citation), cần thêm
+  các bộ dữ liệu khác để khẳng định tính tổng quát.
 
-\begin{description}[leftmargin=1.6em,style=nextline,itemsep=3pt]
-  \item[Single dataset.] Các thí nghiệm chính được thực hiện trên SciFact. Thí nghiệm xác nhận bổ sung
-  (Phần~\ref{sec:val_cross_dataset}) đã tái tạo pipeline trên NFCorpus và xác nhận bảo đảm CRC giữ vững,
-  nhưng tín hiệu QPP tốt nhất khác nhau giữa hai domain. Kết quả có thể không chuyển trực tiếp sang
-  các dataset tìm kiếm khoa học lớn hơn hoặc khác biệt hơn như TREC-COVID.
+  \item \textbf{Title và abstract only.} Hệ thống không phân tích PDF toàn văn. Điều này đơn giản hóa
+  retrieval unit nhưng có thể bỏ sót bằng chứng chỉ có trong full text.
 
-  \item[Title và abstract only.] Hệ thống không parse PDF toàn văn. Điều này đơn giản hóa retrieval unit
-  nhưng có thể bỏ sót bằng chứng chỉ có trong full text.
+  \item \textbf{Một cross-encoder duy nhất.} Chúng tôi chỉ kiểm tra MiniLM-L-6-v2. Về lý thuyết, một
+  cross-encoder được huấn luyện trên cùng miền dữ liệu với BGE \emph{có thể} cải thiện chất lượng. Tuy
+  nhiên, vstash~\citep{steffens2026vstash} cũng báo cáo rằng BGE-reranker-base --- được thiết kế để hoạt
+  động trong cùng không gian embedding với BGE --- vẫn làm giảm chất lượng trên SciFact.
 
-  \item[LLM calibration chưa có dev set riêng.] Thí nghiệm held-out calibration tách file test prediction
-  CSV thành 150 calibration / 150 evaluation query. Đây tốt hơn tune in-split cùng query, nhưng chưa phải
-  thiết kế train/dev/test đầy đủ vì \emph{chưa có file dev prediction sinh riêng từ Colab} (cần một lần chạy
-  QLoRA model trên một split độc lập). Đây là hạn chế cần GPU để gỡ bỏ hoàn toàn; phần conformal đã giảm
-  thiểu sự mong manh bằng cách trung bình trên 200 calibration/evaluation split.
+  \item \textbf{Không có statistical significance test cho cross-dataset.} Các so sánh giữa các bộ dữ
+  liệu là point estimates. Cần paired bootstrap để xác nhận ý nghĩa thống kê.
 
-  \item[Selective-reranking trigger còn headroom.] Always-Rerank, threshold ablation, QPP trigger và
-  conformal risk-controlled selection đã hoàn tất. QPP signal (Hybrid max score) rõ ràng vượt heuristic
-  ban đầu, và conformal control cho bảo đảm về kỳ vọng nDCG shortfall. Ba lưu ý: (i) ngay cả tín hiệu
-  label-free tốt nhất cũng chỉ tương quan vừa phải với gain-from-reranking (Kendall $-0.166$), nên vẫn còn
-  khoảng cách tới oracle-selective skyline; (ii) bảo đảm conformal là in-expectation trên calibration draw,
-  không phải high-probability per split, và dùng loss bound bảo thủ $B = 1$; (iii) tất cả mới chỉ trên
-  SciFact nên khả năng chuyển sang dataset khác chưa được kiểm chứng.
+  \item \textbf{Latency Python.} BM25 Python (\texttt{rank\_bm25}) là bottleneck giả tạo. Cần Lucene hoặc
+  Elasticsearch để có số liệu latency thực tế.
 
-  \item[RRF $k$ tách rời khỏi Phase~3.] Ablation cho thấy $k\approx5$ tốt hơn $k=60$ cho base nDCG@10.
-  Thí nghiệm xác nhận (Phần~\ref{sec:val_k5}) đã chạy lại toàn bộ Phase~3 trên base $k=5$ và xác nhận
-  selective reranking vẫn vượt Always-Rerank ($+0.0088$ $\ndcg$) trên base mạnh hơn. Tuy nhiên, pipeline
-  chính vẫn giữ $k=60$ để nhất quán với tất cả các thí nghiệm trước đó.
+  \item \textbf{EmbeddingGemma chưa kiểm chứng.} Mô hình này bị khóa bởi Google license wall. Paper gốc
+  báo cáo 0.7801 trên SciFact --- vượt qua Oracle Router --- nhưng chúng tôi chưa thể xác nhận.
 
-  \item[Calibration grid compact.] Calibration hiện tìm trên một tập nhỏ class bias, temperature và margin
-  threshold; đủ cho chẩn đoán nhưng không phải hyperparameter optimization toàn diện.
-\end{description}
+  \item \textbf{Frozen B5/P3 hyperparameters được chọn sau exploratory sweep.} Mode-switch controller
+  không dùng target labels khi áp dụng lên dataset mới, nhưng threshold $2.0$ và gain $6.0$ của B5 được
+  chọn sau Phase 7 exploration. Tương tự, window $20$ và $\alpha=0.10$ của P3 được chọn sau Phase 8
+  smoothing exploration, dù leave-one-transfer-dataset-out validation chọn cùng biến thể trong cả ba
+  fold. Vì vậy claim mạnh nhất cần được giới hạn: Frozen P3 là candidate tốt nhất trên tập đánh giá hiện
+  tại; validation tiếp theo phải giữ nguyên threshold/gain/window/alpha trước khi chạy trên held-out
+  batch hoặc dataset mới.
+
+  \item \textbf{P4 residual fallback chỉ là ablation phụ.} P4 tăng transfer trung bình thêm $+0.0021$
+  so với Frozen P3, nhưng bootstrap chỉ có ý nghĩa trên SciDocs. Nếu dùng P4 trong một phiên bản tương
+  lai, feature \texttt{small\_minus\_base\_top} và fallback fraction 10\% phải được freeze trước khi
+  kiểm chứng trên dataset mới.
+\end{enumerate}

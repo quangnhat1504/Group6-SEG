@@ -1,0 +1,83 @@
+\begin{table}[htbp]
+\centering
+\caption{Complete experimental evolution through four phases. All results on SciFact test (300 queries, identical split) unless noted otherwise. nDCG@10 is primary metric. $\Delta$ = nDCG$_{\text{method}} -$ nDCG$_{\text{baseline}}$ (baseline stated in each section header). Bold = best in each phase.}
+\label{tab:all-experiments}
+\setlength{\tabcolsep}{4pt}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrl}
+\toprule
+\textbf{Phase} & \textbf{Method} & \textbf{nDCG@10} & \textbf{$\Delta$ nDCG} & \textbf{Verdict} \\
+\midrule
+\multicolumn{5}{c}{\textbf{Phase 1 — Base Retrieval: Từng retriever riêng lẻ}} \\
+\multicolumn{5}{l}{\footnotesize Baseline = BM25 0.6523 (strong lexical baseline trên scientific claims).} \\
+\midrule
+& BM25 (lexical)                    & 0.6523 & 0        & Tốt bất ngờ; thuật ngữ khoa học khớp từ vựng chính xác \\
+& SciNCL (dense)                    & 0.5640 & $-$0.0883 & Semantic matching; recall cao (0.9082) nhưng rank kém \\
+& SPECTER (dense)                   & 0.3523 & $-$0.3000 & Quá yếu; không phù hợp retrieval \\
+& SciBERT (dense, mean pooling)     & 0.1300 & $-$0.5223 & CLS token không được train cho sentence embedding \\
+\midrule
+\multicolumn{5}{c}{\textbf{Phase 1 — Hybrid Fusion: Kết hợp BM25 + Dense}} \\
+\multicolumn{5}{l}{\footnotesize Baseline = BM25 0.6523. RRF $k=60$, fuse top-100 per retriever.} \\
+\midrule
+& \textbf{Hybrid RRF (SciNCL+BM25)}  & \textbf{0.6583} & +0.0060  & \textbf{Best base retriever}; Recall@100 tăng lên 0.9560 \\
+& Hybrid RRF (SPECTER+BM25)         & 0.3863 & $-$0.2660 & SPECTER quá yếu, kéo tụt hybrid xuống dưới BM25 \\
+& Hybrid RRF (SciBERT+BM25)         & 0.4248 & $-$0.2275 & SciBERT quá yếu, kéo tụt hybrid \\
+& RRF $k=5$ (best $k$)              & 0.6809 & +0.0286  & Tốt hơn $k=60$; nhưng giữ $k=60$ để nhất quán với literature \\
+\midrule
+\multicolumn{5}{c}{\textbf{Phase 2 — Query Routing: Chọn retriever theo từng query}} \\
+\multicolumn{5}{l}{\footnotesize Baseline = Hybrid RRF 0.6583. Router học chọn BM25 / SciNCL / Hybrid cho mỗi query.} \\
+\midrule
+& Random Router (baseline)          & 0.6290 & $-$0.0293 & \textcolor{red}{Kém hơn hybrid cố định} \\
+& Majority Router (luôn chọn BM25)  & 0.6523 & $-$0.0060 & Bằng BM25; không cải thiện gì so với base retriever \\
+& Classical TF-IDF LogReg           & 0.6368 & $-$0.0215 & \textcolor{red}{Kém Hybrid RRF}; feature đơn giản không đủ \\
+& QLoRA Qwen2.5-0.5B (LLM)        & 0.6359 & $-$0.0224 & \textcolor{red}{Kém Hybrid RRF!} Train/test distribution shift \\
+& \textbf{Oracle Router (upper bound)} & \textbf{0.7617} & +0.1034  & \textbf{Cận trên lý thuyết}; cần biết trước qrels $\rightarrow$ không khả thi \\
+\midrule
+\multicolumn{5}{c}{\textbf{Phase 3 — Selective Reranking: Chỉ rerank query \emph{không chắc chắn}}} \\
+\multicolumn{5}{l}{\footnotesize Baseline = Hybrid RRF 0.6583. CE: MiniLM-L-6-v2, top-20, GPU 27.5 ms/q.} \\
+\midrule
+& Always-Rerank (rerank tất cả)     & 0.6939 & +0.0356  & Cận trên thực tế; nhưng tốn 27.5 ms/q $\times$ 300 query \\
+& Selective (score-gap heuristic)   & 0.6924 & +0.0341  & 66\% coverage; gần bằng Always nhưng không có guarantee \\
+& \textbf{CRC Selective (QPP + CRC, $\alpha{=}0.02$)} & \textbf{0.6740} & +0.0157  & 14\% coverage; shortfall 0.0199 $\le$ $\alpha$ \checkmark \\
+& CE top-20 vs top-50 (ablation)    & 0.6939 vs 0.6916 & $-$0.0023 & Top-50 = 0 gain, latency gấp đôi (52 vs 27 ms/q) \\
+\midrule
+\multicolumn{5}{c}{\textbf{Phase 4 — Thay SciNCL bằng modern dense (BGE, E5)}} \\
+\multicolumn{5}{l}{\footnotesize Baseline = Hybrid RRF (SciNCL) 0.6583. Tất cả dense model standalone, không fusion, không CE.} \\
+\midrule
+& BGE-small-en-v1.5 (34M params)    & 0.7200 & +0.0617  & \textbf{Đã vượt Always-Rerank cũ} (0.6939); nhẹ hơn 3$\times$ \\
+& \textbf{BGE-base-en-v1.5 (109M)}   & \textbf{0.7376} & +0.0793  & \textbf{Đột phá} (+12.0\%); baseline generalist mạnh hơn pipeline cũ \\
+& BGE-large-en-v1.5 (335M)          & 0.7346 & +0.0763  & \textcolor{red}{Negative scaling}: 3$\times$ params nhưng \emph{kém} base \\
+& E5-base-v2 (109M)                 & 0.7105 & +0.0522  & Tốt nhưng kém BGE-base; không chuyên biệt khoa học \\
+\midrule
+\multicolumn{5}{c}{\textbf{Phase 4 — Adaptive RRF: Fusion thông minh theo query}} \\
+\multicolumn{5}{l}{\footnotesize Baseline = BGE-base alone 0.7376. ARF thêm BM25 với weight $w \in [0.05,0.9]$ dựa trên query IDF.} \\
+\midrule
+& \textbf{Adaptive RRF (BGE+BM25)}   & \textbf{0.7514} & +0.0138  & \textbf{Best overall}; $p=0.139$ vs BGE (không có ý nghĩa) \\
+& CE Always on ARF                  & 0.7140 & $-$0.0236 & \textcolor{red}{CE gây hại}; $-$0.0374 vs ARF, $p=0.015$ (có ý nghĩa) \\
+& CE CRC Selective on ARF           & 0.7353 & $-$0.0023 & \textcolor{red}{Vẫn thấp hơn no-CE}; CE không còn vai trò \\
+\midrule
+\multicolumn{5}{c}{\textbf{Bổ sung: Query Expansion \& Learned QPP}} \\
+\multicolumn{5}{l}{\footnotesize Baseline = Hybrid RRF (SciNCL) 0.6583. Thử nghiệm bổ trợ, không thuộc pipeline chính.} \\
+\midrule
+& BM25 + HyDE (pseudo-doc expansion) & 0.6280 & $-$0.0303 & \textcolor{red}{HyDE làm giảm}; LLM 0.5B sinh pseudo-doc kém \\
+& BM25 + RM3 (relevance model)      & 0.6549 & $-$0.0034  & Gần bằng Hybrid RRF; RM3 cải thiện nhẹ so với BM25 gốc \\
+& BM25 + HyDE + RM3 (full QE)        & 0.6571 & $-$0.0012  & Kết hợp tốt nhất; vẫn không vượt Hybrid RRF, kém xa BGE \\
+& Learned QPP Regressor (17 feat.) & ---     & ---      & \textcolor{red}{Không generalize}; test $\tau=0.038$ (train $\tau=0.184$) \\
+\midrule
+\multicolumn{5}{c}{\textbf{Cross-Dataset: BGE-base vs SciNCL trên 4 bộ dữ liệu BEIR}} \\
+\multicolumn{5}{l}{\footnotesize $\Delta$ = nDCG$_{\text{BGE}}$ $-$ nDCG$_{\text{SciNCL}}$. Paired t-test với Shapiro-Wilk normality check.} \\
+\midrule
+& SciFact (scientific claims)       & 0.7376 vs 0.5640 & +0.1737  & ${}^{***}p<0.001$; BGE mạnh nhất trên scientific domain \\
+& NFCorpus (biomedical)             & 0.3695 vs 0.2252 & +0.1443  & ${}^{***}p<0.001$; ARF +0.0024 (n.s.); CE không hiệu quả \\
+& FiQA (financial QA)               & 0.3909 vs 0.0800 & +0.3109  & ${}^{***}p<0.001$; ARF $-$0.0082 (n.s.); BM25 quá yếu \\
+& SciDocs (citation prediction)     & 0.2147 vs 0.1951 & +0.0196  & ${}^{**}p=0.008$; margin nhỏ nhất; task khác biệt \\
+\midrule
+\multicolumn{5}{l}{\footnotesize \textbf{Tóm lược:} BGE-base (109M) một mình đạt 0.7376 — đánh bại toàn bộ pipeline cũ (Hybrid+CE = 0.6939).} \\
+\multicolumn{5}{l}{\footnotesize Adaptive RRF đẩy lên 0.7514 (+0.0138, n.s.), đóng 90\% khoảng cách tới Oracle Router (0.7617).} \\
+\multicolumn{5}{l}{\footnotesize Cross-encoder \textbf{luôn gây hại} trong pipeline BGE: $-$0.0374 trên SciFact ($p=0.015$), không sig trên dataset khác.} \\
+\multicolumn{5}{l}{\footnotesize Kết luận: model swap tạo baseline rẻ và mạnh; phần cải tiến sau đó cần giải quyết specialist/generalist trade-off.} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

@@ -1,35 +1,26 @@
 \begin{abstract}
 \noindent
-Tìm kiếm bài báo khoa học đòi hỏi cả \emph{exact lexical matching} lẫn \emph{semantic matching}.
-Các phương pháp lexical như BM25 mạnh với những claim giàu thuật ngữ, trong khi dense encoder
-có thể tìm được bằng chứng liên quan về ngữ nghĩa dù không trùng từ khóa. Một hệ thống hybrid
-tĩnh giúp tăng candidate recall nhưng cũng làm tăng chi phí tính toán và đôi khi làm loãng kết quả
-top-ranked khi một họ retrieval rõ ràng phù hợp hơn cho một query cụ thể. Báo cáo này trình bày một
-hệ thống truy hồi quy mô sinh viên (student-scale) cho bài toán truy hồi claim khoa học trên
-\textbf{SciFact}. Pipeline đã hiện thực gồm BM25, dense retrieval với SciNCL, Reciprocal Rank Fusion
-(RRF), oracle route labels, một classical router chẩn đoán, các Small LLM query router, LLM score
-calibration, confidence-gated fallback, và retrieval-aware diagnostics. Trên SciFact test split,
-Hybrid RRF đạt base-retrieval recall mạnh nhất ($\rechun = 0.9560$) và base $\ndcg$ tốt nhất
-($0.6583$). Oracle routing cho thấy còn nhiều headroom ($\ndcg = 0.7617$). Một router Qwen2.5-0.5B
-được fine-tune bằng QLoRA với label log-probability scoring đạt $\ndcg = 0.6372$; sau held-out
-calibration và confidence-gated fallback đạt $\ndcg = 0.6674$ trên 150 held-out query.
-
-Trọng tâm của báo cáo là Phase~3: \textbf{selective reranking nhận biết bất định}. Baseline
-Always-Rerank dùng cross-encoder nhẹ MS~MARCO MiniLM-L-6-v2 trên Hybrid top-20 đạt $\ndcg = 0.6939$
-ở 27~ms/query trên một GPU, cải thiện so với Hybrid RRF nhưng vẫn dưới Oracle Router. Một threshold
-ablation vẽ toàn bộ đường cong effectiveness-vs-cost; trên held-out split không rò rỉ, selective
-reranking thu lại phần lớn lợi ích của Always-Rerank ở khoảng 74\% rerank coverage. Hai nâng cấp khiến
-trigger trở nên có nguyên tắc: một tín hiệu \emph{query-performance-prediction} (QPP) không giám sát
---- Hybrid maximum fused score --- dự báo \emph{gain-from-reranking} tốt hơn gần ba lần so với heuristic
-score-gap ban đầu; và \emph{Conformal Risk Control} chọn ngưỡng trigger với bảo đảm rằng kỳ vọng phần
-nDCG mất đi so với Always-Rerank nằm trong ngân sách $\alpha$. Ở $\alpha = 0.02$, trigger QPP-cộng-conformal
-tôn trọng bảo đảm ở 61\% coverage (so với 72\% của heuristic) trong khi vẫn đạt chất lượng ngang
-Always-Rerank. Bằng chứng cho thấy hướng đi mạnh nhất không phải routing đơn thuần, mà là một hệ thống
-đa tầng nhận biết bất định, dùng các tín hiệu rẻ và có nguyên tắc để quyết định --- kèm bảo đảm thống kê
---- \emph{khi nào} cross-encoder reranking đắt đỏ là đáng giá.
+Các hệ thống truy hồi tài liệu khoa học đa tầng (multi-stage) thường bắt đầu từ một retriever thưa
+như BM25, kết hợp với một dense retriever, rồi áp dụng cross-encoder reranking ở tầng cuối. Báo cáo
+này trình bày bốn phát hiện chính. \textbf{Thứ nhất}, chúng tôi chỉ ra rằng toàn bộ pipeline đa tầng
+trước đây --- Reciprocal Rank Fusion (RRF), selective reranking, Query Performance Prediction (QPP), và
+Conformal Risk Control (CRC) --- thực chất đang bù đắp cho một dense retriever yếu (SciNCL, $\ndcg =
+0.5640$ trên SciFact). Khi thay thế bằng BGE-base-en-v1.5 (109M), kết quả dense đơn thuần đạt $\ndcg
+= 0.7376$, vượt qua toàn bộ pipeline cũ ($0.6939$). \textbf{Thứ hai}, fine-tune BGE-small (33M) trên
+SciFact bằng RRF disagreement signal tạo ra một SciFact specialist mạnh, đạt $\ndcg = 0.7909$ --- vượt
+BGE-base $+0.0533$ và vượt vstash reference $+0.0202$. \textbf{Thứ ba}, chúng tôi đề xuất
+\textbf{Frozen B5 Mode-Switch SGAF}: một controller rẻ chi phí, chỉ dùng thống kê đã có từ retrieval,
+phát hiện batch-level distribution shift và tự động fallback sang BGE-base. Frozen B5 đạt transfer
+average $\ndcg = 0.3249$, gần bằng BGE-base ($0.3251$), trong khi vẫn giữ SciFact ở $0.8218$.
+\textbf{Thứ tư}, chúng tôi giới thiệu \textbf{Frozen P3 Rank-Window Smoothing} --- một bước hậu xử lý
+CPU, pha một prior BGE-small yếu vào top-20 chỉ khi B5 đã chọn generalist-fallback. P3 nâng transfer
+average lên $0.3293$, vượt BGE-base $+0.0042$, với chi phí bổ sung dưới $0.001$\,ms/query. Tất cả cải
+thiện từ B5/P3 đến từ post-retrieval CPU thuần --- không cần GPU inference, cross-encoder, hay LLM mới.
+Chúng tôi kiểm chứng trên 6 bộ dữ liệu BEIR (SciFact, NFCorpus, FiQA, SciDocs; TREC-COVID, ArguAna),
+sử dụng paired bootstrap cho significance. Toàn bộ mã nguồn và kết quả thực nghiệm được công khai
+trong repository \texttt{SEG}.
 
 \medskip
-\noindent\textbf{Keywords:} information retrieval, scientific search, SciFact, BM25, dense retrieval,
-hybrid retrieval, query routing, QLoRA, uncertainty, selective reranking, query performance prediction,
-conformal risk control.
+\noindent\textbf{Keywords:} information retrieval, scientific search, specialist-generalist fusion,
+distribution shift, cheap post-retrieval repair, mode switching, BGE.
 \end{abstract}

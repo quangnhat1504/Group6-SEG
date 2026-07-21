@@ -1,6 +1,6 @@
 %==============================================================
-%  SEG — Uncertainty-Aware and Cost-Efficient Multi-Stage
-%        Retrieval for Scientific Paper Search
+%  SEG — Hiện đại hóa Truy hồi Khoa học Đa tầng:
+%        Từ Dense Retriever Mạnh đến Specialist-Generalist Mode Switch
 %  Báo cáo dạng academic paper (tiếng Việt, giữ thuật ngữ tiếng Anh)
 %
 %  Biên dịch: pdfLaTeX  (chạy: pdflatex -> bibtex -> pdflatex x2)
@@ -16,42 +16,79 @@
 \IfFileExists{microtype.sty}{\usepackage{microtype}}{}
 
 %-------------------- Bố cục trang ------------------------------
-\usepackage[a4paper,margin=2.5cm]{geometry}
-\usepackage{setspace}
+\IfFileExists{geometry.sty}{%
+  \usepackage[a4paper,margin=2.5cm]{geometry}
+}{%
+  \setlength{\textwidth}{16cm}
+  \setlength{\textheight}{24cm}
+  \setlength{\oddsidemargin}{0cm}
+  \setlength{\evensidemargin}{0cm}
+  \setlength{\topmargin}{-1cm}
+}
+\IfFileExists{setspace.sty}{\usepackage{setspace}}{\newcommand{\onehalfspacing}{\linespread{1.15}\selectfont}}
 \onehalfspacing
-\usepackage{parskip}
+\IfFileExists{parskip.sty}{\usepackage{parskip}}{\setlength{\parskip}{0.5em}\setlength{\parindent}{0pt}}
 
 %-------------------- Toán & ký hiệu ---------------------------
 \usepackage{amsmath,amssymb}
-\usepackage{bm}
+\IfFileExists{bm.sty}{\usepackage{bm}}{\newcommand{\bm}[1]{\boldsymbol{##1}}}
 
 %-------------------- Bảng & hình ------------------------------
-\usepackage{booktabs}
-\usepackage{multirow}
+\IfFileExists{booktabs.sty}{\usepackage{booktabs}}{%
+  \newcommand{\toprule}{\hline}
+  \newcommand{\midrule}{\hline}
+  \newcommand{\bottomrule}{\hline}
+}
+\IfFileExists{multirow.sty}{\usepackage{multirow}}{\newcommand{\multirow}[3]{##3}}
 \usepackage{array}
 \usepackage{graphicx}
-\usepackage{float}
-\usepackage{caption}
-\usepackage{subcaption}
+\IfFileExists{float.sty}{\usepackage{float}}{}
+\IfFileExists{caption.sty}{\usepackage{caption}}{\newcommand{\captionsetup}[1]{}}
+\IfFileExists{subcaption.sty}{\usepackage{subcaption}}{}
 \captionsetup{font=small,labelfont=bf}
-\usepackage{xcolor}
+\IfFileExists{xcolor.sty}{%
+  \usepackage{xcolor}
+}{%
+  \newcommand{\definecolor}[3]{}
+  \newcommand{\textcolor}[2]{##2}
+}
 
 %-------------------- Sơ đồ workflow ---------------------------
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,backgrounds,calc}
 
 %-------------------- Trích dẫn & liên kết ---------------------
-\usepackage[numbers,sort&compress]{natbib}
-\usepackage[hidelinks]{hyperref}
+\IfFileExists{natbib.sty}{%
+  \usepackage[numbers,sort&compress]{natbib}
+  \newcommand{\segbibstyle}{plainnat}
+}{%
+  \newcommand{\citep}[1]{\cite{##1}}
+  \newcommand{\citet}[1]{\cite{##1}}
+  \newcommand{\segbibstyle}{plain}
+}
+\IfFileExists{hyperref.sty}{\IfFileExists{kvsetkeys.sty}{\usepackage[hidelinks]{hyperref}}{}}{}
+\providecommand{\hypersetup}[1]{}
 \hypersetup{
   colorlinks=true,
   linkcolor=blue!55!black,
   citecolor=blue!45!black,
   urlcolor=blue!50!black,
-  pdftitle={Uncertainty-Aware Cost-Efficient Multi-Stage Retrieval for SciFact},
+  pdftitle={Modernizing Scientific Multi-Stage Retrieval: Specialist-Generalist Mode Switching},
   pdfauthor={SEG Team}
 }
-\usepackage{enumitem}
+\IfFileExists{enumitem.sty}{%
+  \usepackage{enumitem}
+}{%
+  \let\segoldenumerate\enumerate
+  \let\endsegoldenumerate\endenumerate
+  \renewenvironment{enumerate}[1][]{\segoldenumerate}{\endsegoldenumerate}
+  \let\segolditemize\itemize
+  \let\endsegolditemize\enditemize
+  \renewenvironment{itemize}[1][]{\segolditemize}{\endsegolditemize}
+  \let\segolddescription\description
+  \let\endsegolddescription\enddescription
+  \renewenvironment{description}[1][]{\segolddescription}{\endsegolddescription}
+}
 
 %-------------------- Định nghĩa màu/style cho TikZ -----------
 \definecolor{cstage}{HTML}{2F6DB5}   % stage chính
@@ -76,19 +113,19 @@
 \vspace*{1.5cm}
 {\Large\bfseries SEG301m — Information Retrieval / Search Engines\par}
 \vspace{1.2cm}
-{\LARGE\bfseries Truy hồi đa tầng nhận biết bất định và tiết kiệm chi phí cho tìm kiếm bài báo khoa học\par}
+{\LARGE\bfseries Hiện đại hóa Truy hồi Khoa học Đa tầng:\\[4pt] Từ Dense Retriever Mạnh đến Specialist-Generalist Mode Switch\par}
 \vspace{0.5cm}
-{\large\itshape Uncertainty-Aware and Cost-Efficient Multi-Stage Retrieval\\ for Scientific Paper Search\par}
+{\large\itshape Modernizing Multi-Stage Scientific Retrieval:\\ From Strong Dense Retrieval to Specialist-Generalist Mode Switching\par}
 \vspace{1.5cm}
 {\large Báo cáo kỹ thuật (Technical Report)\par}
 \vspace{0.3cm}
-{\normalsize Dataset: \textbf{SciFact} (BEIR-style title-and-abstract retrieval)\par}
+{\normalsize Datasets: \textbf{SciFact, NFCorpus, FiQA, SciDocs}, TREC-COVID, ArguAna (BEIR-style)\par}
 \vspace{2.0cm}
 {\large\bfseries Nhóm SEG\par}
 \vspace{0.3cm}
 {\normalsize Repository: \texttt{SEG}\par}
 \vfill
-{\normalsize Ngày cập nhật: 26/06/2026\par}
+{\normalsize Ngày cập nhật: 20/07/2026\par}
 \end{titlepage}
 
 %-------------------- Abstract --------------------------------
@@ -109,7 +146,7 @@
 \input{sections/conclusion}
 
 %-------------------- Tài liệu tham khảo -----------------------
-\bibliographystyle{plainnat}
+\bibliographystyle{\segbibstyle}
 \bibliography{references/references}
 
 %-------------------- Phụ lục ----------------------------------

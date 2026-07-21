@@ -1,0 +1,36 @@
+\begin{table}[htbp]
+\centering
+\caption{Cross-dataset validation: all methods on four BEIR datasets, evaluated with nDCG@10 (primary metric per \cite{aljoofi2025scifact}). BGE-base-en-v1.5 (109M, 768-dim) is the dense retriever unless stated. ``CE on old RRF'' = MiniLM cross-encoder on SciNCL+BM25 RRF top-20. Frozen B5/P3 SGAF use batch-level source-shift detection: specialist (BGE-small, 33M) on SciFact-like batches, BGE-base generalist fallback on transfer datasets.}
+\label{tab:cross-dataset}
+\setlength{\tabcolsep}{3.0pt}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+Dataset & BM25 & SciNCL & BGE-base & Hybrid RRF & Adaptive RRF & CE on ARF & CE on old RRF & Frozen B5 SGAF & Frozen P3 SGAF \\
+\midrule
+\multicolumn{10}{c}{\textbf{nDCG@10 (primary)}} \\
+\midrule
+SciFact   & 0.6523 & 0.5640 & 0.7376 & 0.7185 & \textbf{0.7514} & 0.7140 & 0.6939 & 0.8218 & 0.8218 \\
+NFCorpus  & 0.3079 & 0.2252 & 0.3695 & 0.3546 & \textbf{0.3719} & 0.3674 & 0.3508 & 0.3692 & \textbf{0.3744} \\
+FiQA      & 0.2167 & 0.0800 & 0.3909 & 0.3391 & 0.3827 & \textbf{0.3910} & 0.2819 & 0.3909 & \textbf{0.3960} \\
+SciDocs   & 0.1495 & 0.1951 & \textbf{0.2147} & 0.2001 & 0.2096 & 0.1909 & 0.1832 & \textbf{0.2147} & \textbf{0.2173} \\
+\midrule
+\multicolumn{10}{c}{\textbf{MAP@10 (for reference)}} \\
+\midrule
+SciFact   & 0.6071$^{***}$ & 0.5077$^{***}$ & 0.6918 & 0.6768$^{***}$ & \textbf{0.7111} & 0.6627$^{***}$ & 0.6448 & --- & --- \\
+NFCorpus  & 0.2197$^{***}$ & 0.1545$^{***}$ & 0.2773 & 0.2597$^{***}$ & \textbf{0.2778} & 0.2719 & 0.2563 & --- & --- \\
+FiQA      & 0.1600$^{***}$ & 0.0533$^{***}$ & \textbf{0.3135} & 0.2639$^{***}$ & 0.3007 & \textbf{0.3108} & 0.2266 & --- & --- \\
+SciDocs   & 0.0869 & 0.1136 & \textbf{0.1303} & 0.1200 & 0.1262 & 0.1101 & 0.1068 & --- & --- \\
+\midrule
+\multicolumn{10}{c}{\textbf{Key Comparisons (nDCG@10)}} \\
+\midrule
+\multicolumn{2}{l}{BGE-base vs SciNCL (all datasets)} & \multicolumn{8}{l}{+0.1737$^{***}$ / +0.1444$^{***}$ / +0.3110$^{***}$ / +0.0196$^{**}$} \\
+\multicolumn{2}{l}{Adaptive RRF vs BGE-base} & \multicolumn{8}{l}{+0.0137 (n.s.) / +0.0024 (n.s.) / $-$0.0082 (n.s.) / $-$0.0050 (n.s.)} \\
+\multicolumn{2}{l}{Frozen P3 vs Frozen B5 (transfer)} & \multicolumn{8}{l}{+0.0000 / +0.0052$^{*}$ / +0.0051 (n.s.) / +0.0027 (n.s.)} \\
+\multicolumn{10}{l}{\footnotesize\textit{Frozen B5/P3 SGAF: BGE-small specialist on SciFact (0.8218 = +0.0030 vs BGE-small 0.8188).}} \\
+\multicolumn{10}{l}{\footnotesize\textit{B5 detects batch shift; P3 adds rank-window smoothing inside generalist-fallback batches only.}} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

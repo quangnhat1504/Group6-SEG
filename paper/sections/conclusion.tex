@@ -1,50 +1,49 @@
-\section{Hướng phát triển (Next Work)}
-\label{sec:nextwork}
-
-Phase~3 selective reranking đã hoàn tất, cùng hai nâng cấp có nguyên tắc: QPP trigger signal
-(Phần~\ref{sec:results:qpp}) và conformal risk-controlled threshold selection
-(Phần~\ref{sec:results:conformal}). Các thí nghiệm xác nhận bổ sung (Phần~\ref{sec:validation}) đã
-kiểm chứng: (i) không có data leakage trong feature selection, (ii) CRC generalize sang NFCorpus,
-(iii) selective reranking vượt Always-Rerank ngay cả trên base $k=5$ mạnh hơn, và (iv) top-20 là rerank
-depth tối ưu. Các hướng còn lại:
-
-\begin{enumerate}[leftmargin=2em,itemsep=3pt]
-  \item \textbf{Downstream-utility reranking.} Thêm một tầng rerank chấm candidate theo mức nó giúp một
-  small LLM \emph{xác minh claim} (semantic entropy / answer consistency của một generator Qwen2.5-0.5B/1.5B
-  trên bài toán SUPPORTS/REFUTES/NEI của SciFact), được gate bởi conformal trigger để tầng đắt này chỉ chạy
-  trên query uncertain. Đây là mở rộng giá trị-cao tự nhiên nối retrieval với downstream task của SciFact.
-  \item \textbf{Tăng cường QPP signal} để thu hẹp khoảng cách tới oracle-selective skyline, ví dụ kết hợp
-  các predictor bằng một small supervised regressor train trên calibration split, hoặc thêm clarity-style /
-  ensemble-disagreement feature.
-  \item \textbf{Domain-adaptive signal selection.} Kết quả cross-dataset cho thấy tín hiệu QPP tốt nhất
-  khác nhau giữa SciFact (\texttt{hybrid\_max}) và NFCorpus (\texttt{bm25\_std}). Công trình tương lai có
-  thể khám phá meta-learning hoặc domain-aware signal selection.
-  \item \textbf{Nếu còn thời gian}, sinh một file dev prediction CSV đúng nghĩa từ Colab và chạy lại LLM
-  calibration với một split train/dev/test sạch hơn.
-\end{enumerate}
-
 \section{Kết luận (Conclusion)}
 \label{sec:conclusion}
 
-Báo cáo trình bày một hệ thống truy hồi khoa học hoạt động được cho SciFact. Phase~1 thiết lập BM25,
-Dense/SciNCL, Hybrid RRF và dense ablation baseline. Phase~2 hiện thực query routing với Random, Majority,
-Oracle, một classical TF-IDF router chẩn đoán, và các Small LLM QLoRA router. Kết quả cho thấy Hybrid RRF
-là một base retriever mạnh và oracle routing cho headroom đáng kể. Small LLM router cải thiện sau label
-log-probability scoring và cải thiện thêm với calibration cùng confidence-gated fallback, nhưng vẫn bị giới
-hạn bởi distribution shift và class imbalance.
+Báo cáo này trình bày bốn đóng góp chính về truy hồi tài liệu khoa học, với nDCG@10 là metric chính và
+paired bootstrap để kiểm định:
 
-Dự án do đó được định vị tốt nhất như một \emph{hệ thống truy hồi đa tầng nhận biết bất định} thay vì một
-hệ routing đơn thuần. Phase~3 gồm một Always-Rerank baseline cải thiện $\ndcg$ từ $0.6583$ lên $0.6939$ ở
-27~ms/query, một threshold ablation đầy đủ, một QPP trigger signal không giám sát dự báo gain-from-reranking
-tốt hơn nhiều so với heuristic ban đầu, và một conformal risk-controlled threshold tôn trọng một ngân sách
-nDCG có bảo đảm ở 61\% rerank coverage.
+\begin{enumerate}[leftmargin=2em,itemsep=3pt]
+  \item \textbf{Pipeline đa tầng cũ đang bù đắp cho dense retriever yếu.} Khi thay SciNCL ($\ndcg =
+  0.5640$) bằng BGE-base-en-v1.5 ($0.7376$), toàn bộ kiến trúc RRF + cross-encoder + selective
+  reranking trở nên không cần thiết. Cross-encoder làm \emph{giảm} chất lượng có ý nghĩa ($p=0.015$)
+  trên BGE pipeline. Phát hiện này nhất quán trên 4 dataset.
 
-Năm thí nghiệm xác nhận bổ sung (Phần~\ref{sec:validation}) củng cố kết quả: (i) selective reranking
-không làm giảm effectiveness có ý nghĩa thống kê so với Always-Rerank; (ii) feature selection không bị
-data leakage; (iii) bảo đảm CRC generalize sang NFCorpus; (iv) selective reranking vượt Always-Rerank ngay
-cả trên base mạnh hơn ($k=5$); (v) top-20 là rerank depth tối ưu --- tăng lên top-50 gần gấp đôi latency
-mà không cải thiện $\ndcg$.
+  \item \textbf{Self-supervised fine-tune BGE-small tạo SciFact specialist mạnh.} Dùng RRF disagreement
+  signal, BGE-small (33M) đạt $\ndcg = 0.7909$ trên SciFact --- vượt BGE-base (109M, $+0.0533$) và
+  vstash reference ($+0.0202$). Tuy nhiên, transfer average giảm $-0.0239$ so với BGE-base, xác nhận
+  specialization-generalization trade-off.
 
-Bước tiếp theo mạnh nhất là một tầng downstream-utility reranking
-chấm document theo mức nó giúp một small LLM xác minh claim, được gate bởi conformal trigger này --- nối
-trực tiếp pipeline retrieval với bài toán verification của SciFact trong khi vẫn giữ bảo đảm về chi phí.
+  \item \textbf{Frozen B5 batch mode-switch phục hồi transfer.} Controller hoạt động ở mức batch, chỉ
+  dùng 5 feature có sẵn từ retrieval, phát hiện distribution shift và tự động fallback sang BGE-base.
+  B5 đạt transfer average $0.3249$ (gần bằng BGE-base $0.3251$) và giữ SciFact ở $0.8218$. Đây là core
+  mechanism: batch-level routing ổn định hơn per-query, và tất cả tham số frozen từ SciFact trainfit.
+
+  \item \textbf{Frozen P3 rank-window smoothing nâng transfer vượt BGE-base.} P3 pha prior BGE-small
+  yếu vào top-20 khi B5 chọn generalist-fallback, nâng transfer average lên $0.3293$ ($+0.0042$ so với
+  BGE-base). P3 dương trên toàn bộ 6 dataset, significant trên NFCorpus và ArguAna ($p<0.05$). Toàn
+  bộ chi phí bổ sung: dưới $0.001$\,ms/query, CPU-only.
+\end{enumerate}
+
+Phát hiện triết lý quan trọng nhất: \textbf{độ phức tạp chỉ đáng thêm khi nó giải quyết đúng trade-off}.
+Với dense retriever yếu, pipeline đa tầng bù đắp lỗi mô hình. Với dense retriever mạnh, pipeline cũ trở
+nên thừa. Nhưng khi có một specialist mạnh và một generalist mạnh ở các miền khác nhau, một controller
+rẻ chi phí --- như B5 batch mode-switch --- có thể quyết định khi nào nên tin specialist và khi nào nên
+fallback. Và một bước smoothing rẻ như P3 có thể tận dụng tín hiệu còn sót lại của specialist để cải
+thiện thêm.
+
+\textbf{Hướng phát triển tiếp theo:}
+\begin{itemize}[leftmargin=1.6em,itemsep=2pt]
+  \item Kiểm chứng Frozen B5/P3 trên held-out batch hoặc dataset mới \emph{mà không retune}
+  threshold/gain/window/alpha. Đây là bước cần thiết để nâng từ ``strongest experimental candidate''
+  lên ``validated method.''
+  \item Domain-adaptive shift detection: SciFact-fitted shift detector thất bại trên ArguAna, gợi ý cần
+  calibration đa nguồn hoặc multi-source statistics.
+  \item Mở rộng kiểm chứng trên nhiều bộ dữ liệu BEIR hơn (TREC-COVID, Climate-FEVER, SCIDOCS đầy đủ).
+  \item Thử nghiệm P4 residual fallback như extension tùy chọn nếu external validation xác nhận gain.
+  \item Khám phá các mô hình embedding mạnh hơn như EmbeddingGemma-300M khi có thể truy cập.
+  \item Phân tích failure case để hiểu sâu hơn khi nào specialist thất bại và khi nào generalist đủ.
+  \item Kết hợp B5/P3 với cross-encoder selective --- chỉ khi oracle headroom cho thấy cross-encoder có
+  ích sau khi B5/P3 đã tối ưu.
+\end{itemize}

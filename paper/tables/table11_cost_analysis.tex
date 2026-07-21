@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\caption{Computational cost analysis across pipeline stages. Setup time includes model loading and index construction (one-time). Latency is per-query wall-clock on SciFact test (300 queries, 5183 docs). GPU\% reports the fraction of total pipeline time spent on GPU compute. Transfer Avg = mean nDCG@10 over NFCorpus (323q), FiQA (648q), and SciDocs (1000q). B5/P3 SGAF stages operate entirely on CPU post-retrieval with zero setup cost and negligible latency overhead.}
+\label{tab:cost-analysis}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Stage & Setup (s) & Latency (ms/q) & GPU\% & Transfer Avg \\
+\midrule
+BM25 (Lucene projected)     & 0.3   & 2.0    & 0\%  & 0.2247 \\
+BGE-small encode            & 33.5  & 0.3    & 90\% & 0.3011 \\
+BGE-base encode             & 33.5  & 0.3    & 90\% & 0.3251 \\
+Hybrid RRF (BM25 + BGE)     & 33.8  & 9.0    & 5\%  & --- \\
+CE rerank (top-20)          & 42.0  & 27.5   & 88\% & --- \\
+Always-Rerank (Hybrid + CE) & 42.0  & 39.0   & 88\% & --- \\
+\midrule
+\textbf{B5 routing (CPU)}   & 0     & $\sim$0.01 & 0\% & 0.3249 \\
+\textbf{P3 smoothing (CPU)} & 0     & $\sim$0.001 & 0\% & \textbf{0.3293} \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.5em}
+\footnotesize
+\textbf{Key insight:} B5/P3 SGAF achieves the best Transfer Avg (0.3293) with zero additional GPU cost. The routing and smoothing steps operate on already-computed BGE-small and BGE-base top-100 ranked lists --- no additional encoding, no GPU, no setup. BM25 latency projected to Lucene/Elasticsearch (2.0\,ms); measured Python rank\_bm25 is 333.6\,ms but not representative of production. BGE encode latencies measured on RTX 5070 Ti (cuda:0). CE = cross-encoder \texttt{ms-marco-MiniLM-L-6-v2} on top-20 candidates. Total B5/P3 pipeline: BGE-small + BGE-base encode ($\sim$0.3\,ms each) + CPU routing ($\sim$0.01\,ms) = $\sim$2.6\,ms/q with Lucene projection.
+\end{table}

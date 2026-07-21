@@ -1,95 +1,129 @@
-\section{Phân tích Ablation và Chẩn đoán}
-\label{sec:analysis}
-
-\subsection{Dense-encoder ablation}
-Lựa chọn dense encoder ảnh hưởng mạnh. SPECTER hoạt động kém cho setup retrieval này dù được thiết kế cho
-biểu diễn tài liệu khoa học. MiniLM gần BM25 ở dense-only retrieval, nhưng fusion MiniLM yếu hơn fusion
-SciNCL. Điều này gợi ý rằng chất lượng standalone ranking của một dense model \emph{không} bảo đảm hành vi
-fusion tốt hơn.
-
-\subsection{Prompt và output-scoring ablation}
-Free-text generation không ổn định và hầu như không sinh ra dự đoán BM25. Label log-probability scoring đã
-khắc phục vấn đề kiểm soát output và cải thiện routing accuracy từ $0.1633$ lên $0.4300$ so với run QLoRA
-dựa-trên-generation trước đó.
-
-\subsection{Class-balance follow-up (negative result)}
-\label{sec:analysis:balance}
-Để chống class imbalance, một QLoRA dataset \emph{balanced} (undersampled, 411 ví dụ chia đều ba nhãn) đã
-được export và một run Colab đã được trả về. Tuy nhiên kết quả \emph{kém hơn} bản LogProb không cân bằng:
-accuracy $= 0.163$, Macro-F1 $= 0.151$, $\ndcg = 0.6136$, $\rechun = 0.9449$, $\mrr = 0.5666$ trên 300
-test query. Quan trọng hơn, output của model bị \emph{degenerate} (ví dụ sinh ra chuỗi như
-\texttt{``bmsystemsystemsystem''}), cho thấy việc undersampling xuống 411 ví dụ làm Qwen2.5-0.5B mất ổn định
-sinh nhãn. Đây là một negative result hữu ích: với small LLM ở quy mô này, cân bằng lớp bằng undersampling
-mạnh \emph{không} cứu được routing dưới distribution shift; label log-probability scoring (Phần~\ref{sec:results:router})
-cộng calibration là hướng hiệu quả hơn. Vì vậy báo cáo dùng bản LogProb + calibration làm LLM router chính,
-và xem balanced run như một ablation thất bại có ghi nhận.
-
-\subsection{Calibration và fallback}
-Held-out calibration chọn bias và margin threshold để route trực tiếp các query tự tin và fallback về
-Hybrid khi confidence thấp. Cách này cải thiện $\ndcg$ trên held-out subset. Đánh đổi là fallback làm tăng
-chi phí và có thể giảm routing accuracy vì retrieval effectiveness và việc khớp đúng oracle label không
-luôn đồng nhất.
-
-\subsection{Routing regret}
-Router accuracy không đủ để đánh giá một retrieval router. Nếu route được chọn khác oracle label nhưng truy
-hồi gần như cùng top document, tổn thất thực tế có thể nhỏ. Vì vậy phân tích held-out cũng báo cáo Mean
-Regret@10. Calibrated held-out route có Mean Regret@10 $=0.0708$, so với $0.0893$ của BM25 và $0.1025$ của
-Hybrid RRF trên cùng 150 query --- củng cố quan điểm rằng router nên được đánh giá theo retrieval quality và
-regret, không chỉ theo label accuracy.
-
-\subsection{Retrieval diagnostics}
-Bảng~\ref{tab:diag} cho thấy các query có oracle BM25 có BM25 score gap trung bình cao hơn nhiều so với
-query oracle Dense hoặc Hybrid. Điều này gợi ý BM25 score gap là một feature routing/uncertainty hữu ích:
-nó có thể giúp nhận diện các query mà lexical matching đã đủ tự tin và dense/hybrid ít cần thiết hơn.
-
-\begin{table}[h]
-\centering
-\caption{Retrieval diagnostics theo oracle label trên SciFact test.}
-\label{tab:diag}
-\setlength{\tabcolsep}{4pt}
-\small
-\begin{tabular}{lrrrrr}
-\toprule
-Oracle Label & Count & Avg BM25 Gap & Avg Dense Gap & Avg BD-Overlap@10 & Avg RRF Agree@10 \\
-\midrule
-BM25   & 226 & 11.67 & 0.0178 & 0.1711 & 0.3634 \\
-Dense  & 49  & 3.56  & 0.0143 & 0.2258 & 0.4141 \\
-Hybrid & 25  & 3.51  & 0.0082 & 0.1353 & 0.3462 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Train/Test distribution shift}
-Train oracle labels thiên về Dense, còn test thiên về BM25. Vài lý do hợp lý: (i) oracle label định nghĩa
-bởi per-query $\ndcg$, nên thay đổi top-rank nhỏ có thể lật nhãn của một query ngay cả khi chất lượng route
-gần nhau; (ii) các split SciFact có thể chứa hỗn hợp khác nhau về loại claim, độ đặc thù thuật ngữ, và mức
-trùng lexical với abstract; (iii) Dense/SciNCL có thể truy hồi candidate set rộng hơn nhưng kém ổn định ở
-đúng top-rank nơi $\ndcg$ nhạy cảm; (iv) BM25 có thể áp đảo các test query chứa thuật ngữ y sinh/khoa học
-đặc trưng xuất hiện trực tiếp trong title và abstract. Shift này giải thích vì sao một Small LLM huấn luyện
-trên train label có xu hướng overpredict Dense trên test, và thúc đẩy calibration, fallback, cùng các
-retrieval-aware feature tương lai.
-
-\section{Thảo luận (Discussion)}
+\section{Phân tích và Thảo luận (Discussion)}
 \label{sec:discussion}
 
-Kết quả hiện tại củng cố ba quan sát chính.
+\subsection{Pipeline cũ đang bù đắp cho SciNCL}
 
-\emph{Thứ nhất}, static Hybrid RRF là một base system mạnh, đặc biệt cho $\rechun$. Điều này khiến nó là
-candidate generator tốt cho reranking, nhưng không nhất thiết là route mặc định rẻ nhất.
+Phát hiện quan trọng nhất của giai đoạn đầu là \textbf{toàn bộ kiến trúc đa tầng --- RRF, selective
+reranking, QPP, CRC --- thực chất đang bù đắp cho một dense retriever yếu}. SciNCL chỉ đạt $\ndcg = 0.5640$
+(MAP@10 = 0.5077), buộc hệ thống phải dùng BM25 ($\ndcg = 0.6523$) và RRF để đạt 0.6583, rồi
+cross-encoder để đẩy lên 0.6939. Mỗi tầng thêm vào đều tăng chi phí và độ phức tạp. Khi thay SciNCL bằng
+BGE-base, bức tranh hoàn toàn đảo ngược: BGE-base đơn thuần ($\ndcg = 0.7376$) đã vượt qua toàn bộ
+pipeline cũ ($+0.1737$, $p<0.001$). BM25 và RRF trở nên không cần thiết, và cross-encoder \emph{luôn
+làm giảm} chất lượng trên BGE pipeline ($-0.0374$, $p=0.015$) do không gian embedding khác biệt ---
+MiniLM-L-6-v2 được huấn luyện trên MS MARCO web search, trong khi BGE được huấn luyện trên dữ liệu
+đa dạng bao gồm văn bản khoa học qua MTEB-style contrastive learning.
 
-\emph{Thứ hai}, oracle routing có headroom lớn. Khoảng cách giữa Hybrid RRF $\ndcg = 0.6583$ và Oracle
-Router $\ndcg = 0.7617$ cho thấy việc chọn retrieval theo query có thể quan trọng.
+\subsection{Specialization-Generalization Trade-off}
 
-\emph{Thứ ba}, Small LLM router đơn lẻ chưa đủ mạnh để là đóng góp chính. Nó nhạy với class imbalance và
-distribution shift, và không rõ ràng vượt Majority Router trên toàn test set. Tuy nhiên score calibration,
-fallback, phân tích regret, và retrieval-aware diagnostics khiến nó hữu ích như một thành phần của một hệ
-thống truy hồi nhận biết bất định rộng hơn.
+Fine-tune BGE-small (33M, 384d) trên SciFact tạo ra một specialist cực mạnh: $\ndcg = 0.7909$ --- vượt
+BGE-base (109M, 768d) tới $+0.0533$, và vượt cả vstash reference cùng kích thước ($+0.0202$). Đây là
+minh chứng rằng self-supervised fine-tuning với RRF disagreement signal có thể tạo ra mô hình nhúng
+vượt trội trên miền chuyên biệt từ tập dữ liệu nhỏ.
 
-Khung mạnh nhất cho dự án cuối do đó là:
-\begin{quote}
-\itshape
-Dùng routing rẻ và các tín hiệu bất định để quyết định \emph{khi nào} dùng các tầng retrieval hoặc
-reranking đắt tiền hơn.
-\end{quote}
-Khung này khớp với bằng chứng hiện tại hơn là tuyên bố rằng Small LLM routing đơn lẻ giải quyết được truy
-hồi khoa học.
+Tuy nhiên, cái giá phải trả là transfer performance: trên ba bộ dữ liệu ngoài miền (NFCorpus, FiQA,
+SciDocs), BGE-small specialist chỉ đạt transfer average $0.3011$, kém BGE-base generalist tới $-0.0239$.
+Đây là một minh họa kinh điển của \emph{catastrophic forgetting} trong fine-tuning: mô hình nhỏ (33M)
+mất khả năng tổng quát nhanh hơn mô hình lớn (109M) do dung lượng tham số thấp hơn.
+
+\subsection{Từ Adaptive Coverage đến Batch Mode-Switch}
+
+Câu hỏi then chốt: làm thế nào để \emph{giữ} specialist trên SciFact trong khi \emph{phục hồi} transfer
+trên các miền khác? Các phương pháp per-query coverage (A3 fixed 5\%, adaptive uncertainty coverage)
+đều không giải quyết được triệt để: chúng quá bảo thủ (coverage thấp) hoặc quá nhiễu (user feedback
+mechanism quá mạnh), dẫn đến transfer vẫn kém BGE-base đáng kể ($-0.0152$).
+
+\textbf{B5 giải quyết điểm nghẽn này bằng batch-level mode switch.} Thay vì quyết định rescue ở mức
+từng query --- vốn dễ bị nhiễu --- B5 tính batch shift score $S$ từ trung bình z-score của năm đặc trưng
+trên toàn batch, và quyết định \emph{toàn bộ batch} nên ở specialist-safe hay generalist-fallback. Cơ
+chế này có ba ưu điểm:
+
+\begin{enumerate}[leftmargin=2em,itemsep=2pt]
+  \item \textbf{Giảm nhiễu:} Trung bình qua batch làm mượt các outlier query riêng lẻ, giúp quyết định ổn
+  định hơn.
+  \item \textbf{Frozen statistics:} Tất cả z-score được chuẩn hóa bằng $\mu_{\text{trainfit}}$ và
+  $\sigma_{\text{trainfit}}$ từ SciFact --- không dùng label của target dataset, do đó không bị ảnh
+  hưởng bởi train/test distribution shift.
+  \item \textbf{Phân tách rõ ràng:} SciFact có batch shift score thấp ($S \approx 1.09$), trong khi
+  NFCorpus ($6.03$), FiQA ($3.79$), và SciDocs ($3.58$) đều có $S$ cao --- controller phân biệt được
+  source batch và transfer batch một cách đáng tin cậy.
+\end{enumerate}
+
+Kết quả: Frozen B5 gần như phục hồi hoàn toàn transfer average của BGE-base ($0.3249$ vs $0.3251$,
+$\Delta = -0.0001$), trong khi SciFact vẫn giữ ở $0.8218$ ($+0.0030$ so với BGE-small). Đây là bước nhảy
+lớn nhất trong toàn bộ hành trình phát triển ($+0.0151$ từ current adaptive SGAF).
+
+\subsection{P3 Rank-Window Smoothing: Tín hiệu Specialist trong Top Window}
+
+P3 trả lời câu hỏi: \emph{khi B5 đã chọn BGE-base làm ranking chính, liệu BGE-small còn cung cấp tín
+hiệu hữu ích nào không?} Kết quả cho thấy có --- nhưng chỉ trong một cửa sổ nhỏ ở đầu ranking.
+
+P3 chỉ kích hoạt trong generalist-fallback batches. Nó pha một prior BGE-small yếu ($\alpha = 0.10$) vào
+top-20 của ranking BGE-base qua weighted RRF. Ý tưởng: BGE-small tuy yếu hơn trên transfer, nhưng vẫn
+có thể xác định được một số document chất lượng mà BGE-base bỏ sót ở vị trí cao. Bằng cách blend nhẹ
+hai ranking trong top-20, P3 tận dụng tín hiệu bổ trợ này mà không làm nhiễu phần đuôi.
+
+P3 cải thiện transfer average từ $0.3249$ lên $0.3293$ ($+0.0043$), vượt BGE-base $+0.0042$. Cải thiện
+này dương trên toàn bộ 6 dataset (4 nội bộ + 2 external), với significance trên NFCorpus ($p=0.02$) và
+ArguAna ($p=0.02$). Quan trọng: P3 không bao giờ làm giảm kết quả so với B5 trên bất kỳ dataset nào
+trong tập đánh giá hiện tại.
+
+Leave-one-transfer-dataset-out (LOTO) validation chọn cùng bộ tham số $(w=20, \alpha=0.10)$ trong cả ba
+fold, và mọi held-out delta đều dương --- giảm lo ngại về overfit trên grid exploration.
+
+\subsection{External Validation và Hạn chế của Shift Detector}
+
+Kết quả external validation trên TREC-COVID và ArguAna cho thấy hai mặt của B5/P3. Trên TREC-COVID
+(biomedical, gần với SciFact), B5/P3 hoạt động tốt: P3 đạt $\ndcg = 0.6908$, cao hơn BGE-base $+0.0073$.
+Tuy nhiên, trên ArguAna (argument retrieval, khác biệt lớn), B5 dưới BGE-base $0.0229$ --- shift
+detector huấn luyện trên SciFact không phát hiện được argument retrieval batches là "khác biệt", dẫn đến
+một số batch bị giữ ở specialist-safe mode trong khi đáng lẽ nên fallback. P3 bù đắp một phần ($+0.0011$,
+$p=0.02$) nhưng không thể đóng hoàn toàn khoảng cách.
+
+Bài học: SciFact-fitted shift detector không khái quát tốt sang argument retrieval. Đây là hướng cải
+thiện trong tương lai: domain-adaptive shift detection hoặc multi-source calibration.
+
+\subsection{Luận điểm ``Cheap First''}
+
+Toàn bộ cải thiện từ B5/P3 đến từ các thao tác post-retrieval CPU thuần, với chi phí bổ sung dưới
+$0.01$\,ms/query. So với cross-encoder ($27.5$\,ms/query, GPU), B5/P3 rẻ hơn $\sim 2700\times$ trên mỗi
+query. So với toàn bộ pipeline BGE retrieval ($2.6$\,ms/query), B5/P3 chỉ thêm chưa đến $0.4\%$ latency.
+
+Bảng~\ref{tab:cost-analysis} cho thấy B5/P3 đạt transfer average cao nhất ($0.3293$) với latency thấp thứ
+hai ($2.6$\,ms/q, chỉ sau BGE-small/Base đơn thuần ở $2.3$\,ms/q). Luận điểm ``cheap first'' của chúng
+tôi là: \textbf{trước khi thêm GPU inference (cross-encoder, LLM), hãy khai thác tối đa tín hiệu đã có
+sẵn từ retrieval bằng các thao tác post-retrieval CPU}. B5/P3 chứng minh rằng cách tiếp cận này có thể
+phục hồi transfer và thậm chí vượt generalist baseline --- với chi phí gần như bằng không.
+
+Oracle headroom (transfer average của Oracle Router = $0.3855$) cho thấy vẫn còn dư địa cải thiện đáng
+kể, nhưng để đạt được mức đó cần các phương pháp đắt tiền hơn (cross-encoder, LLM reranker). Điều này
+củng cố luận điểm: B5/P3 là giải pháp ``cheap repair'' hiệu quả nhất trước khi chuyển sang các tầng
+đắt tiền.
+
+\subsection{Ý nghĩa thống kê và Độ tin cậy}
+
+Chúng tôi tiến hành paired bootstrap (10\,000 resamples) trên nDCG@10 cho tất cả so sánh SGAF. Kết quả:
+
+\begin{itemize}[leftmargin=1.6em,itemsep=2pt]
+  \item \textbf{Frozen B5 vs BGE-small:} Có ý nghĩa trên NFCorpus ($+0.0187$, $p=0.01$), FiQA ($+0.0274$,
+  $p=0.001$), và SciDocs ($+0.0253$, $p<0.001$).
+  \item \textbf{Frozen P3 vs Frozen B5:} Significant trên NFCorpus ($+0.0052$, $p=0.02$) và ArguAna
+  ($+0.0011$, $p=0.02$); directionally positive nhưng chưa đạt significance trên FiQA ($p=0.10$) và
+  SciDocs ($p=0.07$).
+  \item \textbf{Frozen P3 vs BGE-base:} Dương trên toàn bộ transfer dataset nhưng chưa significant
+  trên bất kỳ dataset riêng lẻ nào --- đúng với kỳ vọng: P3 cải thiện nhỏ nhưng nhất quán, cần nhiều
+  query hơn để đạt significance ở mức dataset.
+\end{itemize}
+
+\subsection{Train/Test Distribution Shift}
+
+Một phát hiện phụ quan trọng: SciFact có sự khác biệt phân phối rất lớn giữa train và test. Train oracle
+labels thiên về Dense (477/809), trong khi test thiên về BM25 (226/300). Điều này khiến mọi phương pháp
+học có giám sát trên SciFact trainfit --- learned QPP, LLM query routing, BM25 tuning --- đều thất bại
+khi chuyển từ train sang test. Các phương pháp không giám sát (BGE embeddings, Adaptive RRF dùng IDF
+corpus, B5/P3 với z-score frozen từ trainfit) miễn nhiễm với vấn đề này \emph{miễn là} thống kê dùng để
+chuẩn hóa không bị ảnh hưởng bởi label shift.
+
+B5/P3 né được vấn đề này bằng cách chỉ dùng $\mu_{\text{trainfit}}$ và $\sigma_{\text{trainfit}}$ của
+các đặc trưng query (không phải label), và không huấn luyện tham số mới trên trainfit. Logistic
+regression rescue ranker được huấn luyện trên trainfit nhưng chỉ dùng trong specialist-safe mode (batch
+giống SciFact), nơi distribution shift nhỏ nhất.

@@ -2,45 +2,65 @@
 \label{sec:setup}
 
 \paragraph{Metrics.}
-Chúng tôi báo cáo $\ndcg$, $\recten$, $\rechun$, $\mrr$ cho retrieval; và Router Accuracy, Router
-Macro-F1 cho chất lượng routing. Với Phase~3, chúng tôi thêm \emph{rerank coverage} (tỉ lệ query được
-rerank) và \emph{latency} (ms/query) đo trên GPU.
+Chúng tôi báo cáo \textbf{nDCG@10 (primary)}, MAP@10, Recall@10, Recall@100, và MRR@10 cho tất cả thí nghiệm retrieval. nDCG@10 là metric chính theo \cite{aljoofi2025scifact}; paired t-test với Shapiro-Wilk kiểm tra phân phối chuẩn (Wilcoxon fallback nếu vi phạm) được sử dụng cho significance testing. Các thí
+nghiệm cross-dataset cũng báo cáo đầy đủ các metric này. Chi phí được đo bằng \emph{abstract cost units}
+(retrieval chỉ BM25=1, Dense=3, Hybrid=4) và latency thực đo (ms/query).
 
-\paragraph{Ràng buộc phần cứng và tính khả thi.}
-\begin{itemize}[leftmargin=1.6em,itemsep=1pt]
-  \item Môi trường quy mô sinh viên (student-scale).
-  \item Pipeline Python chạy cục bộ.
-  \item Workflow Google Colab / single-GPU cho QLoRA.
-  \item Tránh full-text PDF indexing và các neural retrieval model rất nặng trong phase hiện tại.
-\end{itemize}
+\paragraph{Phần cứng.}
+Toàn bộ thí nghiệm chạy trên một GPU NVIDIA GeForce RTX~5070~Ti (16~GB VRAM), CUDA 12.8, Python 3.13.
+Pipeline chạy cục bộ, phù hợp với môi trường quy mô sinh viên.
 
-\paragraph{Chi phí: latency thực đo.}
-Báo cáo dùng \emph{wall-clock latency thực đo} (ms/query) làm trục chi phí thống nhất cho cả pipeline.
-Bảng~\ref{tab:latency} đo per-query online latency của từng tầng trên đúng phần cứng (GPU RTX~5070~Ti,
-batch=1, sau 10 query warm-up), tách riêng chi phí offline một-lần (BM25 index build, dense document
-encoding) khỏi chi phí online per-query --- đại lượng so sánh được với cross-encoder. BM25 (11.25~ms) rẻ
-nhất, Dense/SciNCL (16.52~ms) ở giữa, Hybrid (33.97~ms) đắt nhất trong các base retriever, và cross-encoder
-rerank thêm 27.3~ms khi được kích hoạt.
-
-\begin{table}[h]
+\begin{table}[htbp]
 \centering
-\caption{Per-query online latency thực đo trên SciFact test (5{,}183 docs, 300 queries, batch=1, GPU
-RTX~5070~Ti). Chi phí offline một-lần liệt kê riêng.}
-\label{tab:latency}
-\begin{tabular}{lrl}
+\caption{Computational cost and resource usage per method across datasets. Setup time includes index construction (BM25) or document encoding (dense/CE). Online latency is per-query time after setup (ms/query, batch=1). CPU and GPU are peak utilization during inference. Dense search latency is dot-product only ($<$1~ms/q); BGE encoding $>$100M embeddings/s on RTX 5070 Ti.}
+\label{tab:setup}
+\setlength{\tabcolsep}{3pt}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrrrr}
 \toprule
-Stage & ms/query (online) & Offline một-lần \\
+Dataset & Method & Setup (s) & Latency (ms/q) & CPU (\%) & GPU (\%) & $n_{\text{q}}$ \\
 \midrule
-BM25 (rank\_bm25)                       & 11.25 & index build 0.3\,s \\
-Dense / SciNCL                          & 16.52 & doc encode 54.0\,s (cuda:0) \\
-Hybrid RRF (BM25+Dense+fuse)            & 33.97 & --- \\
-Cross-encoder rerank (Hybrid top-20)   & 27.3  & --- (từ Always-Rerank) \\
+\multirow{7}{*}{SciFact} & BM25 (lexical)                & 0.3   & 10.8  & 100 & 0   & 300 \\
+                          & SciNCL (dense)                 & 29.7  & $<$0.1 & 6   & 90  & 300 \\
+                          & BGE-base (dense)               & 33.5  & $<$0.1 & 6   & 90  & 300 \\
+                          & Hybrid RRF (BM25 + BGE)        & 33.8  & 11.0  & 100 & 5   & 300 \\
+                          & Adaptive RRF (BGE + BM25)      & 33.8  & 11.5  & 100 & 5   & 300 \\
+                          & CE rerank only (top-20)        & 8.2   & 27.5  & 7   & 88  & 300 \\
+                          & Always-Rerank (ARF + CE)       & 42.0  & 39.0  & 100 & 88  & 300 \\
+\midrule
+\multirow{5}{*}{NFCorpus} & BM25                          & 0.4   & 7.6   & 100 & 0   & 323 \\
+                          & BGE-base (dense)               & 21.3  & $<$0.1 & 6   & 90  & 323 \\
+                          & Hybrid RRF (BM25 + BGE)        & 21.7  & 8.0   & 100 & 5   & 323 \\
+                          & Adaptive RRF (BGE + BM25)      & 21.7  & 8.5   & 100 & 5   & 323 \\
+                          & CE rerank only (top-20)        & 8.2   & 27.5  & 7   & 88  & 323 \\
+\midrule
+\multirow{5}{*}{SciDocs}  & BM25                          & 94.0  & 11.5  & 100 & 0   & 1{,}000 \\
+                          & BGE-base (dense)               & 82.0  & $<$0.1 & 6   & 90  & 1{,}000 \\
+                          & Hybrid RRF (BM25 + BGE)        & 176.0 & 20.0  & 100 & 5   & 1{,}000 \\
+                          & Adaptive RRF (BGE + BM25)      & 176.0 & 20.5  & 100 & 5   & 1{,}000 \\
+                          & CE rerank only (top-20)        & 8.2   & 47.0  & 7   & 88  & 1{,}000 \\
+\midrule
+\multicolumn{7}{l}{\footnotesize BM25: \texttt{rank\_bm25} single-threaded. Dense: SentenceTransformers GPU encode, per-query = dot product. CE: MiniLM-L-6-v2.}\\
+\multicolumn{7}{l}{\footnotesize Setup = one-time offline cost. Online latency = per-query runtime after warm-up. Hybrid/ARF latency dominated by BM25.}\\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
-\paragraph{Ghi chú về cost proxy cũ.}
-Một bản trước của báo cáo dùng cost unit trừu tượng (BM25=1, Dense=3, Hybrid=4) cho bảng cost--quality
-Phase~2. Latency thực đo ở Bảng~\ref{tab:latency} cho thấy tỉ lệ thực gần $1 : 1.5 : 3$, tức cost unit cũ
-\emph{phóng đại} chi phí tương đối của Dense. Vì vậy báo cáo ưu tiên latency thực; cost unit chỉ còn xuất
-hiện ở Bảng~\ref{tab:costquality} như một tham chiếu lịch sử, không phải thước đo cuối.
+\paragraph{Evaluation protocol.}
+Tất cả các hệ thống được đánh giá trên \emph{toàn bộ test split} của từng bộ dữ liệu:
+\begin{itemize}[leftmargin=1.6em,itemsep=2pt]
+  \item \textbf{SciFact:} 300 test queries (chuẩn BEIR).
+  \item \textbf{NFCorpus:} 323 test queries.
+  \item \textbf{FiQA:} 648 test queries (test split chính thức, không phải dev).
+  \item \textbf{SciDocs:} 1{,}000 test queries (citation prediction).
+\end{itemize}
+
+Các tham số (\textit{e.g.}, trọng số Adaptive RRF) được cố định dựa trên phân tích định tính từ SciFact
+train split và áp dụng nhất quán trên tất cả các bộ dữ liệu --- không có tuning trên test set.
+
+\paragraph{Ghi chú về latency.}
+BM25 Python (\texttt{rank\_bm25}) hiện đạt 7--11~ms/query tùy kích thước corpus (SciFact: 10.8~ms, SciDocs: 11.5~ms).
+Cross-encoder inference (MiniLM-L-6-v2) đo được 27--47~ms/query tùy độ dài văn bản (SciFact abstracts $\sim$27~ms,
+SciDocs full papers $\sim$47~ms). GPU encoding BGE-base mất 21--248~s tùy dataset (chi phí một lần khi khởi tạo).

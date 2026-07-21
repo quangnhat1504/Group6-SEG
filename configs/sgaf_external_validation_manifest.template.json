@@ -1,0 +1,76 @@
+{
+  "dataset_slug": "TODO_lowercase_dataset_or_batch_id",
+  "created_at": "TODO_YYYY-MM-DD",
+  "purpose": "Frozen SGAF external validation without retuning",
+  "candidate_contract": {
+    "candidate_role": "TODO_source_preservation_or_claim_transfer_or_biomedical_transfer_or_robustness_or_smoke",
+    "claim_scope": "TODO_external_claim_or_smoke_only",
+    "external_clean": "TODO_true_or_false",
+    "used_in_b5_p3_p4_development": "TODO_true_or_false",
+    "matrix_decision": "TODO_high_priority_or_second_wave_or_smoke_only",
+    "contamination_notes": "TODO_explain_prior_use_or_cleanliness",
+    "known_project_datasets_not_external": [
+      "scifact",
+      "nfcorpus",
+      "fiqa",
+      "scidocs"
+    ]
+  },
+  "data_contract": {
+    "corpus_snapshot": "TODO_path_hash_or_date",
+    "query_snapshot": "TODO_path_hash_or_date",
+    "qrels_snapshot": "TODO_path_hash_or_hidden_until_after_ranking",
+    "split_policy": "TODO_official_test_or_frozen_heldout",
+    "labels_used_before_ranking": false
+  },
+  "frozen_recipes": {
+    "b5": {
+      "rescue_classifier": "BGE-base rescue classifier trained on SciFact trainfit",
+      "c_value": 0.1,
+      "threshold": 2.0,
+      "shifted_gain": 6.0,
+      "shifted_cap": 1.0
+    },
+    "p3": {
+      "apply_only_when_b5_mode": "generalist_fallback",
+      "window": 20,
+      "alpha": 0.1,
+      "rrf_k": 60
+    },
+    "p4_optional": {
+      "apply_only_when_b5_mode": "generalist_fallback",
+      "feature": "small_minus_base_top",
+      "fraction": 0.1,
+      "claim_status": "appendix_only_until_external_promotion_gate_passes"
+    }
+  },
+  "planned_outputs": {
+    "base_dir": "runs/fusion/external_validation/TODO_dataset_slug",
+    "bm25": "runs/fusion/external_validation/TODO_dataset_slug/bm25.csv",
+    "bge_small_specialist": "runs/fusion/external_validation/TODO_dataset_slug/bge_small_specialist.csv",
+    "bge_base_generalist": "runs/fusion/external_validation/TODO_dataset_slug/bge_base_generalist.csv",
+    "current_adaptive_sgaf": "runs/fusion/external_validation/TODO_dataset_slug/current_adaptive_sgaf.csv",
+    "frozen_b5_sgaf": "runs/fusion/external_validation/TODO_dataset_slug/frozen_b5_sgaf.csv",
+    "frozen_p3_sgaf": "runs/fusion/external_validation/TODO_dataset_slug/frozen_p3_sgaf.csv",
+    "optional_p4_sgaf": "runs/fusion/external_validation/TODO_dataset_slug/optional_p4_sgaf.csv",
+    "rows": "runs/fusion/external_validation/TODO_dataset_slug/external_validation_rows.csv",
+    "summary": "runs/fusion/external_validation/TODO_dataset_slug/external_validation_summary.csv",
+    "significance": "runs/fusion/external_validation/TODO_dataset_slug/external_validation_significance.csv",
+    "report": "reports/tables/table_sgaf_external_validation_TODO_dataset_slug.md"
+  },
+  "pre_run_audits": [
+    "python scripts\\audit_sgaf_package_readiness.py",
+    "python scripts\\audit_sgaf_external_dataset_choice.py runs\\fusion\\external_validation\\TODO_dataset_slug\\validation_manifest.json",
+    "python scripts\\audit_sgaf_external_validation_manifest.py runs\\fusion\\external_validation\\TODO_dataset_slug\\validation_manifest.json",
+    "python scripts\\audit_sgaf_external_data_readiness.py runs\\fusion\\external_validation\\TODO_dataset_slug\\validation_manifest.json",
+    "python scripts\\audit_sgaf_frozen_protocol_readiness.py",
+    "python scripts\\audit_sgaf_claim_language.py"
+  ],
+  "decision_gates": {
+    "source_preservation_max_loss": 0.005,
+    "b5_transfer_delta_vs_bge_base_min": -0.002,
+    "p3_dataset_delta_vs_b5_min": -0.002,
+    "p4_dataset_delta_vs_p3_min": -0.002,
+    "p4_min_significant_transfer_datasets_vs_p3": 2
+  }
+}
